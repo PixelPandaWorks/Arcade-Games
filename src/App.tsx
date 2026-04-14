@@ -9,9 +9,10 @@ import SymbiosisGame from './components/SymbiosisGame';
 import ParadoxGame from './components/ParadoxGame';
 import UmbraGame from './components/UmbraGame';
 import CipherGame from './components/CipherGame';
+import YahtzeeGame from './components/YahtzeeGame';
 
 export default function App() {
-  const [activeGame, setActiveGame] = useState<'menu' | 'sonar' | 'symbiosis' | 'paradox' | 'umbra' | 'cipher'>('menu');
+  const [activeGame, setActiveGame] = useState<'menu' | 'sonar' | 'symbiosis' | 'paradox' | 'umbra' | 'cipher' | 'yahtzee'>('menu');
 
   if (activeGame === 'sonar') {
     return (
@@ -83,8 +84,22 @@ export default function App() {
     );
   }
 
+  if (activeGame === 'yahtzee') {
+    return (
+      <div className="w-full h-screen bg-black overflow-hidden relative">
+        <button 
+          onClick={() => setActiveGame('menu')} 
+          className="absolute top-8 right-8 z-50 text-white/50 hover:text-white text-xs tracking-[0.2em] transition-colors"
+        >
+          EXIT
+        </button>
+        <YahtzeeGame />
+      </div>
+    );
+  }
+
   return (
-    <div className="w-full h-screen bg-black flex flex-col items-center justify-center font-sans text-white select-none">
+    <div className="w-full h-screen bg-black flex flex-col items-center justify-center font-sans text-white select-none overflow-y-auto py-12">
       <h1 className="text-4xl font-light tracking-[0.4em] mb-2 ml-4">ARCADE</h1>
       <p className="text-gray-500 text-xs tracking-[0.2em] mb-16 uppercase">Select Protocol</p>
       
@@ -122,6 +137,13 @@ export default function App() {
           className="px-8 py-4 border border-white/30 text-xs tracking-[0.3em] rounded-full hover:bg-white hover:text-black transition-all duration-300 flex justify-between items-center group"
         >
           <span>CIPHER</span>
+          <span className="opacity-0 group-hover:opacity-100 transition-opacity">→</span>
+        </button>
+        <button 
+          onClick={() => setActiveGame('yahtzee')}
+          className="px-8 py-4 border border-green-500/50 text-green-400 text-xs tracking-[0.3em] rounded-full hover:bg-green-500 hover:text-black transition-all duration-300 flex justify-between items-center group"
+        >
+          <span>YAHTZEE</span>
           <span className="opacity-0 group-hover:opacity-100 transition-opacity">→</span>
         </button>
       </div>

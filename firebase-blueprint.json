@@ -1,0 +1,71 @@
+{
+  "entities": {
+    "Game": {
+      "title": "Game",
+      "description": "A multiplayer Yahtzee game session",
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["waiting", "playing", "finished"],
+          "description": "Current state of the game"
+        },
+        "hostId": {
+          "type": "string",
+          "description": "UID of the game creator"
+        },
+        "playerIds": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "List of player UIDs"
+        },
+        "playerNames": {
+          "type": "object",
+          "additionalProperties": { "type": "string" },
+          "description": "Map of player UIDs to their display names"
+        },
+        "currentTurnIndex": {
+          "type": "number",
+          "description": "Index of the player whose turn it is in playerIds"
+        },
+        "dice": {
+          "type": "array",
+          "items": { "type": "number" },
+          "description": "Current values of the 5 dice"
+        },
+        "kept": {
+          "type": "array",
+          "items": { "type": "boolean" },
+          "description": "Which dice are kept (true) vs rerolled (false)"
+        },
+        "rollsLeft": {
+          "type": "number",
+          "description": "Number of rolls left in the current turn (0-3)"
+        },
+        "scores": {
+          "type": "object",
+          "description": "Map of player UIDs to their scorecards"
+        },
+        "round": {
+          "type": "number",
+          "description": "Current round number (1-13)"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["status", "hostId", "playerIds", "playerNames", "currentTurnIndex", "dice", "kept", "rollsLeft", "scores", "round", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/games/{gameId}": {
+      "schema": { "$ref": "#/entities/Game" },
+      "description": "Yahtzee game sessions"
+    }
+  }
+}
