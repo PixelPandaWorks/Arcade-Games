@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { auth, db, handleFirestoreError, OperationType } from '../firebase';
 import { signInAnonymously, updateProfile, onAuthStateChanged, User } from 'firebase/auth';
 import { collection, doc, setDoc, onSnapshot, updateDoc, query, where, getDocs, serverTimestamp, getDoc } from 'firebase/firestore';
-import { LogIn, Plus, Users, Play, Dices, User as UserIcon } from 'lucide-react';
+import { LogIn, Plus, Users, Play, Dices, User as UserIcon, Copy, Check, Crown } from 'lucide-react';
 
 // --- Types ---
 type Category = 'ones' | 'twos' | 'threes' | 'fours' | 'fives' | 'sixes' | 'threeOfAKind' | 'fourOfAKind' | 'fullHouse' | 'smallStraight' | 'largeStraight' | 'yahtzee' | 'chance';
@@ -74,12 +74,14 @@ const CATEGORIES: { id: Category, label: string }[] = [
   { id: 'chance', label: 'Chance' },
 ];
 
-export default function YahtzeeGame() {
+export default function YahtzeeGame({ initialJoinId }: { initialJoinId?: string | null }) {
   const [user, setUser] = useState<User | null>(null);
   const [game, setGame] = useState<GameState | null>(null);
   const [availableGames, setAvailableGames] = useState<GameState[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [usernameInput, setUsernameInput] = useState('');
+  const [copied, setCopied] = useState(false);
+  const [pendingJoinId, setPendingJoinId] = useState<string | null>(initialJoinId || null);
 
   // Auth Listener
   useEffect(() => {
@@ -168,7 +170,10 @@ export default function YahtzeeGame() {
     try {
       const gameRef = doc(db, 'games', gameId);
       const gameSnap = await getDoc(gameRef);
-      if (!gameSnap.exists()) return;
+      if (!gameSnap.exists()) {
+        setError("Game not found or has ended.");
+        return;
+      }
       
       const data = gameSnap.data();
       if (data.playerIds.includes(user.uid)) {
@@ -197,6 +202,14 @@ export default function YahtzeeGame() {
       handleFirestoreError(err, OperationType.UPDATE, `games/${gameId}`);
     }
   };
+
+  // Auto-join effect
+  useEffect(() => {
+    if (user && pendingJoinId && !game) {
+      joinGame(pendingJoinId);
+      setPendingJoinId(null);
+    }
+  }, [user, pendingJoinId, game]);
 
   const startGame = async () => {
     if (!game || game.hostId !== user?.uid) return;
@@ -388,6 +401,19 @@ export default function YahtzeeGame() {
         ) : (
           <p className="text-gray-500 text-sm animate-pulse">Waiting for host to start...</p>
         )}
+
+        <button 
+          onClick={() => {
+            const url = `${window.location.origin}${window.location.pathname}?game=yahtzee&join=${game.id}`;
+            navigator.clipboard.writeText(url);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+          }}
+          className="mt-4 flex items-center justify-center gap-2 w-full py-3 border border-white/20 text-white text-xs tracking-[0.2em] rounded-full hover:bg-white/10 transition-all duration-300"
+        >
+          {copied ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
+          <span className={copied ? "text-green-400" : ""}>{copied ? "COPIED!" : "COPY INVITE LINK"}</span>
+        </button>
         
         <button onClick={leaveGame} className="mt-6 text-xs text-gray-500 hover:text-white tracking-widest">LEAVE</button>
       </div>
@@ -413,17 +439,17 @@ export default function YahtzeeGame() {
       </div>
 
       {/* Game Area */}
-      <div className="flex flex-col md:flex-row gap-8">
+      <div className="flex flex-col md:flex-row gap-4 md:gap-8">
         
         {/* Dice Section */}
-        <div className="flex-1 flex flex-col items-center justify-center border border-white/10 rounded-xl p-8 bg-white/5">
-          <div className="flex gap-2 md:gap-4 mb-8">
+        <div className="flex flex-col items-center justify-center border border-white/10 rounded-xl p-4 md:p-8 bg-white/5 shrink-0">
+          <div className="flex gap-2 md:gap-4 mb-4 md:mb-8">
             {game.dice.map((d, i) => (
               <button
                 key={i}
                 onClick={() => toggleKeep(i)}
                 disabled={!isMyTurn || game.rollsLeft === 3}
-                className={`w-12 h-12 md:w-16 md:h-16 flex items-center justify-center text-2xl font-bold rounded-lg border-2 transition-all ${
+                className={`w-10 h-10 md:w-16 md:h-16 flex items-center justify-center text-xl md:text-2xl font-bold rounded-lg border-2 transition-all ${
                   game.kept[i] 
                     ? 'border-green-500 bg-green-500/20 text-green-400' 
                     : 'border-white/30 bg-black text-white hover:border-white/60'
@@ -437,7 +463,7 @@ export default function YahtzeeGame() {
           <button
             onClick={rollDice}
             disabled={!isMyTurn || game.rollsLeft <= 0}
-            className={`flex items-center gap-3 px-8 py-4 rounded-full text-xs tracking-[0.2em] transition-all ${
+            className={`flex items-center gap-2 md:gap-3 px-6 py-3 md:px-8 md:py-4 rounded-full text-[10px] md:text-xs tracking-[0.2em] transition-all ${
               isMyTurn && game.rollsLeft > 0
                 ? 'bg-white text-black hover:bg-gray-200'
                 : 'bg-white/10 text-white/30 cursor-not-allowed'
@@ -448,7 +474,7 @@ export default function YahtzeeGame() {
           </button>
           
           {isMyTurn && game.rollsLeft < 3 && (
-            <p className="text-xs text-gray-500 mt-4 tracking-widest">Select a category on your scorecard to score.</p>
+            <p className="text-[10px] md:text-xs text-gray-500 mt-3 md:mt-4 tracking-widest text-center max-w-[200px] md:max-w-none">Select a category on your scorecard to score.</p>
           )}
         </div>
 
@@ -514,8 +540,11 @@ export default function YahtzeeGame() {
               .map(pid => ({ name: game.playerNames[pid], score: getTotalScore(game.scores[pid]) }))
               .sort((a, b) => b.score - a.score)
               .map((p, i) => (
-                <div key={i} className="flex justify-between w-64 text-lg">
-                  <span className={i === 0 ? "text-green-400" : "text-white"}>{i + 1}. {p.name}</span>
+                <div key={i} className="flex justify-between items-center w-64 text-lg">
+                  <span className={`flex items-center gap-2 ${i === 0 ? "text-green-400 font-bold" : "text-white"}`}>
+                    {i === 0 && <Crown size={18} className="text-yellow-400 fill-yellow-400" />}
+                    {i + 1}. {p.name}
+                  </span>
                   <span className="text-white">{p.score}</span>
                 </div>
               ))}

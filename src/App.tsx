@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import SonarGame from './components/SonarGame';
 import SymbiosisGame from './components/SymbiosisGame';
 import ParadoxGame from './components/ParadoxGame';
@@ -12,7 +12,30 @@ import CipherGame from './components/CipherGame';
 import YahtzeeGame from './components/YahtzeeGame';
 
 export default function App() {
-  const [activeGame, setActiveGame] = useState<'menu' | 'sonar' | 'symbiosis' | 'paradox' | 'umbra' | 'cipher' | 'yahtzee'>('menu');
+  const [activeGame, setActiveGame] = useState<'menu' | 'sonar' | 'symbiosis' | 'paradox' | 'umbra' | 'cipher' | 'yahtzee'>(() => {
+    const params = new URLSearchParams(window.location.search);
+    const gameParam = params.get('game');
+    const validGames = ['sonar', 'symbiosis', 'paradox', 'umbra', 'cipher', 'yahtzee'];
+    if (gameParam && validGames.includes(gameParam)) {
+      return gameParam as any;
+    }
+    return 'menu';
+  });
+
+  const [joinId] = useState<string | null>(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('join');
+  });
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('join') || params.has('game')) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('join');
+      url.searchParams.delete('game');
+      window.history.replaceState({}, '', url.pathname);
+    }
+  }, []);
 
   if (activeGame === 'sonar') {
     return (
@@ -93,7 +116,7 @@ export default function App() {
         >
           EXIT
         </button>
-        <YahtzeeGame />
+        <YahtzeeGame initialJoinId={joinId} />
       </div>
     );
   }
