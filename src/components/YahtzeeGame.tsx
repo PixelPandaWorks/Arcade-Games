@@ -295,8 +295,19 @@ export default function YahtzeeGame({ initialJoinId }: { initialJoinId?: string 
   };
 
   // --- Render Helpers ---
+  const UPPER_CATEGORIES: Category[] = ['ones', 'twos', 'threes', 'fours', 'fives', 'sixes'];
+
+  const getUpperScore = (scorecard: Scorecard) => {
+    return UPPER_CATEGORIES.reduce((sum, cat) => sum + (scorecard[cat] || 0), 0);
+  };
+
+  const getBonus = (scorecard: Scorecard) => {
+    return getUpperScore(scorecard) >= 63 ? 35 : 0;
+  };
+
   const getTotalScore = (scorecard: Scorecard) => {
-    return Object.values(scorecard).reduce((sum, val) => sum + (val || 0), 0);
+    const baseScore = Object.values(scorecard).reduce((sum, val) => sum + (val || 0), 0);
+    return baseScore + getBonus(scorecard);
   };
 
   // --- Views ---
@@ -493,31 +504,56 @@ export default function YahtzeeGame({ initialJoinId }: { initialJoinId?: string 
             </thead>
             <tbody>
               {CATEGORIES.map(cat => (
-                <tr key={cat.id} className="border-b border-white/5 hover:bg-white/5">
-                  <td className="p-2 text-gray-300">{cat.label}</td>
-                  {game.playerIds.map(pid => {
-                    const score = game.scores[pid][cat.id];
-                    const isMe = pid === user.uid;
-                    const canScore = isMe && isMyTurn && game.rollsLeft < 3 && score === undefined;
-                    
-                    return (
-                      <td key={pid} className="p-1 text-center">
-                        {score !== undefined ? (
-                          <span className="text-white">{score}</span>
-                        ) : canScore ? (
-                          <button 
-                            onClick={() => scoreCategory(cat.id)}
-                            className="w-full py-1 text-xs text-green-400 border border-green-500/30 rounded hover:bg-green-500/20 transition-colors"
-                          >
-                            {calculateScore(game.dice, cat.id)}
-                          </button>
-                        ) : (
-                          <span className="text-gray-700">-</span>
-                        )}
-                      </td>
-                    );
-                  })}
-                </tr>
+                <React.Fragment key={cat.id}>
+                  <tr className="border-b border-white/5 hover:bg-white/5">
+                    <td className="p-2 text-gray-300">{cat.label}</td>
+                    {game.playerIds.map(pid => {
+                      const score = game.scores[pid][cat.id];
+                      const isMe = pid === user.uid;
+                      const canScore = isMe && isMyTurn && game.rollsLeft < 3 && score === undefined;
+                      
+                      return (
+                        <td key={pid} className="p-1 text-center">
+                          {score !== undefined ? (
+                            <span className="text-white">{score}</span>
+                          ) : canScore ? (
+                            <button 
+                              onClick={() => scoreCategory(cat.id)}
+                              className="w-full py-1 text-xs text-green-400 border border-green-500/30 rounded hover:bg-green-500/20 transition-colors"
+                            >
+                              {calculateScore(game.dice, cat.id)}
+                            </button>
+                          ) : (
+                            <span className="text-gray-700">-</span>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                  {cat.id === 'sixes' && (
+                    <tr className="bg-white/5 border-b border-white/20 text-xs">
+                      <td className="p-2 text-gray-400">Bonus (63+ = 35)</td>
+                      {game.playerIds.map(pid => {
+                        const upperScore = getUpperScore(game.scores[pid]);
+                        const bonus = getBonus(game.scores[pid]);
+                        const upperFilledCount = UPPER_CATEGORIES.filter(c => game.scores[pid][c] !== undefined).length;
+                        const isUpperDone = upperFilledCount === 6;
+                        
+                        return (
+                          <td key={pid} className="p-1 text-center">
+                            {bonus > 0 ? (
+                              <span className="text-green-400 font-bold">+35</span>
+                            ) : isUpperDone ? (
+                              <span className="text-gray-600">0</span>
+                            ) : (
+                              <span className="text-gray-600 text-[10px]">({upperScore}/63)</span>
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  )}
+                </React.Fragment>
               ))}
               <tr className="bg-white/10 font-bold">
                 <td className="p-3 text-white tracking-widest uppercase text-xs">TOTAL</td>
