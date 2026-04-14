@@ -1,0 +1,130 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import { useState } from 'react';
+import SonarGame from './components/SonarGame';
+import SymbiosisGame from './components/SymbiosisGame';
+import ParadoxGame from './components/ParadoxGame';
+import UmbraGame from './components/UmbraGame';
+import CipherGame from './components/CipherGame';
+
+export default function App() {
+  const [activeGame, setActiveGame] = useState<'menu' | 'sonar' | 'symbiosis' | 'paradox' | 'umbra' | 'cipher'>('menu');
+
+  if (activeGame === 'sonar') {
+    return (
+      <div className="w-full h-screen bg-black overflow-hidden relative">
+        <button 
+          onClick={() => setActiveGame('menu')} 
+          className="absolute top-8 right-8 z-50 text-white/50 hover:text-white text-xs tracking-[0.2em] transition-colors"
+        >
+          EXIT
+        </button>
+        <SonarGame />
+      </div>
+    );
+  }
+
+  if (activeGame === 'symbiosis') {
+    return (
+      <div className="w-full h-screen bg-black overflow-hidden relative">
+        <button 
+          onClick={() => setActiveGame('menu')} 
+          className="absolute top-8 right-8 z-50 text-white/50 hover:text-white text-xs tracking-[0.2em] transition-colors"
+        >
+          EXIT
+        </button>
+        <SymbiosisGame />
+      </div>
+    );
+  }
+
+  if (activeGame === 'paradox') {
+    return (
+      <div className="w-full h-screen bg-black overflow-hidden relative">
+        <button 
+          onClick={() => setActiveGame('menu')} 
+          className="absolute top-8 right-8 z-50 text-white/50 hover:text-white text-xs tracking-[0.2em] transition-colors"
+        >
+          EXIT
+        </button>
+        <ParadoxGame />
+      </div>
+    );
+  }
+
+  if (activeGame === 'umbra') {
+    return (
+      <div className="w-full h-screen bg-white overflow-hidden relative">
+        <button 
+          onClick={() => setActiveGame('menu')} 
+          className="absolute top-8 right-8 z-50 text-black/50 hover:text-black text-xs tracking-[0.2em] transition-colors"
+        >
+          EXIT
+        </button>
+        <UmbraGame />
+      </div>
+    );
+  }
+
+  if (activeGame === 'cipher') {
+    return (
+      <div className="w-full h-screen bg-black overflow-hidden relative">
+        <button 
+          onClick={() => setActiveGame('menu')} 
+          className="absolute top-8 right-8 z-50 text-white/50 hover:text-white text-xs tracking-[0.2em] transition-colors"
+        >
+          EXIT
+        </button>
+        <CipherGame />
+      </div>
+    );
+  }
+
+  return (
+    <div className="w-full h-screen bg-black flex flex-col items-center justify-center font-sans text-white select-none">
+      <h1 className="text-4xl font-light tracking-[0.4em] mb-2 ml-4">ARCADE</h1>
+      <p className="text-gray-500 text-xs tracking-[0.2em] mb-16 uppercase">Select Protocol</p>
+      
+      <div className="flex flex-col gap-6 w-64">
+        <button 
+          onClick={() => setActiveGame('sonar')}
+          className="px-8 py-4 border border-white/30 text-xs tracking-[0.3em] rounded-full hover:bg-white hover:text-black transition-all duration-300 flex justify-between items-center group"
+        >
+          <span>SONAR</span>
+          <span className="opacity-0 group-hover:opacity-100 transition-opacity">→</span>
+        </button>
+        <button 
+          onClick={() => setActiveGame('symbiosis')}
+          className="px-8 py-4 border border-white/30 text-xs tracking-[0.3em] rounded-full hover:bg-white hover:text-black transition-all duration-300 flex justify-between items-center group"
+        >
+          <span>SYMBIOSIS</span>
+          <span className="opacity-0 group-hover:opacity-100 transition-opacity">→</span>
+        </button>
+        <button 
+          onClick={() => setActiveGame('paradox')}
+          className="px-8 py-4 border border-white/30 text-xs tracking-[0.3em] rounded-full hover:bg-white hover:text-black transition-all duration-300 flex justify-between items-center group"
+        >
+          <span>PARADOX</span>
+          <span className="opacity-0 group-hover:opacity-100 transition-opacity">→</span>
+        </button>
+        <button 
+          onClick={() => setActiveGame('umbra')}
+          className="px-8 py-4 border border-white/30 text-xs tracking-[0.3em] rounded-full hover:bg-white hover:text-black transition-all duration-300 flex justify-between items-center group"
+        >
+          <span>UMBRA</span>
+          <span className="opacity-0 group-hover:opacity-100 transition-opacity">→</span>
+        </button>
+        <button 
+          onClick={() => setActiveGame('cipher')}
+          className="px-8 py-4 border border-white/30 text-xs tracking-[0.3em] rounded-full hover:bg-white hover:text-black transition-all duration-300 flex justify-between items-center group"
+        >
+          <span>CIPHER</span>
+          <span className="opacity-0 group-hover:opacity-100 transition-opacity">→</span>
+        </button>
+      </div>
+    </div>
+  );
+}
