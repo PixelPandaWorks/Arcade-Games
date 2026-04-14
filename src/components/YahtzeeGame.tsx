@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { auth, db, handleFirestoreError, OperationType } from '../firebase';
-import { signInWithPopup, GoogleAuthProvider, onAuthStateChanged, User } from 'firebase/auth';
+import { signInAnonymously, updateProfile, onAuthStateChanged, User } from 'firebase/auth';
 import { collection, doc, setDoc, onSnapshot, updateDoc, query, where, getDocs, serverTimestamp, getDoc } from 'firebase/firestore';
 import { LogIn, Plus, Users, Play, Dices, User as UserIcon } from 'lucide-react';
 
@@ -79,6 +79,7 @@ export default function YahtzeeGame() {
   const [game, setGame] = useState<GameState | null>(null);
   const [availableGames, setAvailableGames] = useState<GameState[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [usernameInput, setUsernameInput] = useState('');
 
   // Auth Listener
   useEffect(() => {
@@ -121,10 +122,17 @@ export default function YahtzeeGame() {
     return () => unsubscribe();
   }, [game?.id]);
 
-  const handleLogin = async () => {
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!usernameInput.trim()) {
+      setError("Please enter a username.");
+      return;
+    }
+    setError(null);
     try {
-      const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
+      const { user: authUser } = await signInAnonymously(auth);
+      await updateProfile(authUser, { displayName: usernameInput.trim() });
+      setUser({ ...authUser, displayName: usernameInput.trim() } as User);
     } catch (err: any) {
       setError(err.message);
     }
@@ -279,17 +287,27 @@ export default function YahtzeeGame() {
   };
 
   // --- Views ---
-  if (!user) {
+  if (!user || !user.displayName) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-white font-sans">
         <h1 className="text-4xl font-light tracking-[0.4em] mb-8">YAHTZEE</h1>
-        <button 
-          onClick={handleLogin}
-          className="flex items-center gap-3 px-8 py-4 border border-white/30 text-xs tracking-[0.2em] rounded-full hover:bg-white hover:text-black transition-all duration-300"
-        >
-          <LogIn size={16} />
-          <span>LOGIN WITH GOOGLE</span>
-        </button>
+        <form onSubmit={handleLogin} className="flex flex-col items-center gap-6">
+          <input
+            type="text"
+            value={usernameInput}
+            onChange={(e) => setUsernameInput(e.target.value)}
+            placeholder="ENTER USERNAME"
+            maxLength={15}
+            className="px-6 py-4 bg-transparent border border-white/30 text-center text-white tracking-widest rounded-full focus:outline-none focus:border-white transition-colors"
+          />
+          <button 
+            type="submit"
+            className="flex items-center gap-3 px-8 py-4 border border-white/30 text-xs tracking-[0.2em] rounded-full hover:bg-white hover:text-black transition-all duration-300"
+          >
+            <LogIn size={16} />
+            <span>ENTER ARCADE</span>
+          </button>
+        </form>
         {error && <p className="text-red-500 mt-4 text-xs">{error}</p>}
       </div>
     );
