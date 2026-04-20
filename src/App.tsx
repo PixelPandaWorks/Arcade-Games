@@ -167,11 +167,15 @@ export default function App() {
   }
 
   return (
-    <div className="w-full h-screen bg-black flex flex-col items-center justify-center font-sans text-white select-none overflow-y-auto py-12">
-      <h1 className="text-4xl font-light tracking-[0.4em] mb-2 ml-4">ARCADE</h1>
-      <p className="text-gray-500 text-xs tracking-[0.2em] mb-16 uppercase">Select Protocol</p>
-      
-      <div className="flex flex-col gap-6 w-64">
+    <div className="w-full h-screen bg-black font-sans text-white select-none overflow-x-hidden overflow-y-auto">
+      <div className="w-full min-h-full flex flex-col">
+        <div className="m-auto flex flex-col items-center py-16 px-4 w-full max-w-md">
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-light tracking-[0.3em] mb-4 text-center leading-tight drop-shadow-md">
+            GUDDU'S <br className="md:hidden" /> ARCADIA
+          </h1>
+          <p className="text-gray-500 text-xs tracking-[0.2em] mb-12 uppercase text-center">Select Protocol</p>
+          
+          <div className="flex flex-col gap-4 w-full sm:w-72">
         <button 
           onClick={() => setActiveGame('sonar')}
           className="px-8 py-4 border border-white/30 text-xs tracking-[0.3em] rounded-full hover:bg-white hover:text-black transition-all duration-300 flex justify-between items-center group"
@@ -235,6 +239,8 @@ export default function App() {
           <span>ENIGMA</span>
           <span className="opacity-0 group-hover:opacity-100 transition-opacity">→</span>
         </button>
+      </div>
+      </div>
       </div>
     </div>
   );
