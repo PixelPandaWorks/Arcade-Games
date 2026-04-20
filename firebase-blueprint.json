@@ -60,12 +60,76 @@
         }
       },
       "required": ["status", "hostId", "playerIds", "playerNames", "currentTurnIndex", "dice", "kept", "rollsLeft", "scores", "round", "createdAt", "updatedAt"]
+    },
+    "OverrideGame": {
+      "title": "OverrideGame",
+      "description": "A multiplayer Override game session",
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["waiting", "playing", "finished"]
+        },
+        "hostId": {
+          "type": "string"
+        },
+        "playerIds": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "playerNames": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "currentTurnIndex": {
+          "type": "number"
+        },
+        "direction": {
+          "type": "number"
+        },
+        "deck": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "discardPile": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "currentColor": {
+          "type": "string"
+        },
+        "hands": {
+          "type": "object"
+        },
+        "unoFlags": {
+          "type": "object"
+        },
+        "winnerId": {
+          "type": "string"
+        },
+        "pendingWildAction": {
+          "type": "object"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["status", "hostId", "playerIds", "playerNames", "currentTurnIndex", "direction", "deck", "discardPile", "currentColor", "hands", "unoFlags", "createdAt", "updatedAt"]
     }
   },
   "firestore": {
     "/games/{gameId}": {
       "schema": { "$ref": "#/entities/Game" },
       "description": "Yahtzee game sessions"
+    },
+    "/override_games/{gameId}": {
+      "schema": { "$ref": "#/entities/OverrideGame" },
+      "description": "Override game sessions"
     }
   }
 }

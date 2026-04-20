@@ -13,12 +13,13 @@ import YahtzeeGame from './components/YahtzeeGame';
 import SudokuGame from './components/SudokuGame';
 import EclipseGame from './components/EclipseGame';
 import EnigmaGame from './components/EnigmaGame';
+import OverrideGame from './components/OverrideGame';
 
 export default function App() {
-  const [activeGame, setActiveGame] = useState<'menu' | 'sonar' | 'symbiosis' | 'paradox' | 'umbra' | 'cipher' | 'yahtzee' | 'sudoku' | 'eclipse' | 'enigma'>(() => {
+  const [activeGame, setActiveGame] = useState<'menu' | 'sonar' | 'symbiosis' | 'paradox' | 'umbra' | 'cipher' | 'yahtzee' | 'sudoku' | 'eclipse' | 'enigma' | 'override'>(() => {
     const params = new URLSearchParams(window.location.search);
     const gameParam = params.get('game');
-    const validGames = ['sonar', 'symbiosis', 'paradox', 'umbra', 'cipher', 'yahtzee', 'sudoku', 'eclipse', 'enigma'];
+    const validGames = ['sonar', 'symbiosis', 'paradox', 'umbra', 'cipher', 'yahtzee', 'sudoku', 'eclipse', 'enigma', 'override'];
     if (gameParam && validGames.includes(gameParam)) {
       return gameParam as any;
     }
@@ -172,6 +173,20 @@ export default function App() {
     );
   }
 
+  if (activeGame === 'override') {
+    return (
+      <div className="w-full h-screen bg-black overflow-hidden relative">
+        <button 
+          onClick={() => setActiveGame('menu')} 
+          className="absolute top-8 right-8 z-50 text-white/50 hover:text-white text-xs tracking-[0.2em] transition-colors"
+        >
+          EXIT
+        </button>
+        <OverrideGame initialJoinId={joinId} />
+      </div>
+    );
+  }
+
   return (
     <div className="w-full h-screen bg-black font-sans text-white select-none overflow-x-hidden overflow-y-auto">
       <div className="w-full min-h-full flex flex-col">
@@ -243,6 +258,13 @@ export default function App() {
           className="px-8 py-4 border border-fuchsia-500/50 text-fuchsia-400 text-xs tracking-[0.3em] rounded-full hover:bg-fuchsia-500 hover:text-black transition-all duration-300 flex justify-between items-center group"
         >
           <span>ENIGMA</span>
+          <span className="opacity-0 group-hover:opacity-100 transition-opacity">→</span>
+        </button>
+        <button 
+          onClick={() => setActiveGame('override')}
+          className="px-8 py-4 border border-purple-500/50 text-purple-400 text-xs tracking-[0.3em] rounded-full hover:bg-purple-500 hover:text-black transition-all duration-300 flex justify-between items-center group shadow-[0_0_15px_rgba(168,85,247,0.2)]"
+        >
+          <span>OVERRIDE</span>
           <span className="opacity-0 group-hover:opacity-100 transition-opacity">→</span>
         </button>
       </div>
