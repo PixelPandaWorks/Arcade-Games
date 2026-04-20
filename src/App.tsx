@@ -30,12 +30,18 @@ export default function App() {
     return params.get('join');
   });
 
+  const [challengeId] = useState<string | null>(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('challenge');
+  });
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.has('join') || params.has('game')) {
+    if (params.has('join') || params.has('game') || params.has('challenge')) {
       const url = new URL(window.location.href);
       url.searchParams.delete('join');
       url.searchParams.delete('game');
+      url.searchParams.delete('challenge');
       window.history.replaceState({}, '', url.pathname);
     }
   }, []);
@@ -161,7 +167,7 @@ export default function App() {
         >
           EXIT
         </button>
-        <EnigmaGame />
+        <EnigmaGame initialChallenge={challengeId} />
       </div>
     );
   }
