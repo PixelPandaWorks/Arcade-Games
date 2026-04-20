@@ -23,6 +23,7 @@ export default function UmbraGame() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [gameState, setGameState] = useState<GameState>('START');
   const [score, setScore] = useState(0);
+  const [highScore, setHighScore] = useState(() => parseInt(localStorage.getItem('arcade_umbra_highscore') || '0', 10));
   
   const stateRef = useRef({
     status: 'START' as GameState,
@@ -295,6 +296,11 @@ export default function UmbraGame() {
           if (state.health <= 0) {
             state.status = 'GAME_OVER';
             setGameState('GAME_OVER');
+            setHighScore(prev => {
+              const newHigh = Math.max(prev, state.score);
+              localStorage.setItem('arcade_umbra_highscore', newHigh.toString());
+              return newHigh;
+            });
           }
         }
 
@@ -404,7 +410,10 @@ export default function UmbraGame() {
 
       {/* UI Overlays */}
       {gameState === 'START' && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 backdrop-blur-md z-10 p-6 text-center transition-all duration-700">
+        <div 
+          onClick={startGame}
+          className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 backdrop-blur-md z-20 p-6 text-center transition-all duration-700 cursor-pointer"
+        >
           <h1 className="text-4xl font-light text-black mb-2 tracking-[0.4em] ml-4">UMBRA</h1>
           <p className="text-gray-500 text-xs tracking-[0.2em] mb-16 uppercase">Reverse-Stealth</p>
           
@@ -416,19 +425,17 @@ export default function UmbraGame() {
             <p className="text-xs text-gray-400 italic text-center">Stay in the shadows of the monoliths.</p>
           </div>
 
-          <button 
-            onClick={startGame}
-            className="px-10 py-3 border border-black/30 text-black text-xs tracking-[0.2em] rounded-full hover:bg-black hover:text-white transition-all duration-300"
-          >
-            BEGIN
-          </button>
+          <p className="animate-pulse text-black/70 text-xs tracking-[0.3em] uppercase">
+            TAP ANYWHERE TO BEGIN
+          </p>
         </div>
       )}
 
       {gameState === 'GAME_OVER' && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/90 backdrop-blur-md z-10 p-6 text-center transition-all duration-700">
           <h2 className="text-2xl font-light text-red-600 mb-2 tracking-[0.3em] ml-3">INCINERATED</h2>
-          <p className="text-gray-500 text-xs tracking-[0.2em] mb-12 uppercase">Score: {score}</p>
+          <p className="text-black text-xl tracking-[0.2em] mb-2 uppercase">Score: {score}</p>
+          {highScore > 0 && <p className="text-gray-500 text-xs tracking-[0.2em] mb-12 uppercase">Best: {highScore}</p>}
           <button 
             onClick={startGame}
             className="px-10 py-3 border border-black/30 text-black text-xs tracking-[0.2em] rounded-full hover:bg-black hover:text-white transition-all duration-300"

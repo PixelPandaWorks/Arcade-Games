@@ -82,6 +82,25 @@ export default function YahtzeeGame({ initialJoinId }: { initialJoinId?: string 
   const [usernameInput, setUsernameInput] = useState('');
   const [copied, setCopied] = useState(false);
   const [pendingJoinId, setPendingJoinId] = useState<string | null>(initialJoinId || null);
+  const [highScore, setHighScore] = useState(() => parseInt(localStorage.getItem('arcade_yahtzee_highscore') || '0', 10));
+  const [showInstructions, setShowInstructions] = useState(() => !localStorage.getItem('arcade_yahtzee_seen_instructions'));
+
+  const dismissInstructions = () => {
+    setShowInstructions(false);
+    localStorage.setItem('arcade_yahtzee_seen_instructions', 'true');
+  };
+
+  // High Score Tracker
+  useEffect(() => {
+    if (game?.status === 'finished' && user && game.scores[user.uid]) {
+      const myScore = getTotalScore(game.scores[user.uid]);
+      setHighScore(prev => {
+        const newHigh = Math.max(prev, myScore);
+        localStorage.setItem('arcade_yahtzee_highscore', newHigh.toString());
+        return newHigh;
+      });
+    }
+  }, [game?.status, user]);
 
   // Auth Listener
   useEffect(() => {
@@ -342,9 +361,12 @@ export default function YahtzeeGame({ initialJoinId }: { initialJoinId?: string 
       <div className="flex flex-col items-center justify-center h-full text-white font-sans w-full max-w-2xl mx-auto p-6">
         <div className="flex justify-between items-center w-full mb-12">
           <h1 className="text-2xl font-light tracking-[0.3em]">LOBBY</h1>
-          <div className="flex items-center gap-2 text-xs text-gray-400">
-            <UserIcon size={14} />
-            <span>{user.displayName}</span>
+          <div className="flex flex-col items-end gap-1 text-xs text-gray-400">
+            <div className="flex items-center gap-2">
+              <UserIcon size={14} />
+              <span>{user.displayName}</span>
+            </div>
+            {highScore > 0 && <span className="text-yellow-500/70">BEST: {highScore}</span>}
           </div>
         </div>
 
@@ -434,7 +456,24 @@ export default function YahtzeeGame({ initialJoinId }: { initialJoinId?: string 
   const isMyTurn = game.playerIds[game.currentTurnIndex] === user.uid;
 
   return (
-    <div className="flex flex-col h-full text-white font-sans w-full max-w-4xl mx-auto p-4 md:p-8 overflow-y-auto">
+    <div className="flex flex-col h-full text-white font-sans w-full max-w-4xl mx-auto p-4 md:p-8 overflow-y-auto relative">
+      {showInstructions && (
+        <div 
+          onClick={dismissInstructions}
+          className="absolute inset-0 flex flex-col items-center justify-center bg-black/90 backdrop-blur-md z-50 p-6 text-center cursor-pointer min-h-screen"
+        >
+          <h2 className="text-3xl font-light tracking-[0.3em] mb-4">HOW TO PLAY YAHTZEE</h2>
+          <div className="space-y-4 max-w-md text-sm text-gray-300 font-light mb-8">
+            <p>Roll the dice up to 3 times to get the highest scoring combination for one of the 13 categories.</p>
+            <p>Click on the dice you want to keep before rolling again.</p>
+            <p>Score 63+ in the top section to get a 35 point bonus!</p>
+          </div>
+          <p className="animate-pulse text-green-400 text-xs tracking-[0.2em] uppercase">
+            TAP ANYWHERE TO DISMISS
+          </p>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex justify-between items-center mb-8">
         <div>

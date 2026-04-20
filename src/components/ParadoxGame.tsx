@@ -115,6 +115,7 @@ export default function ParadoxGame() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [gameState, setGameState] = useState<GameState>('START');
   const [level, setLevel] = useState(1);
+  const [highScore, setHighScore] = useState(() => parseInt(localStorage.getItem('arcade_paradox_highscore') || '1', 10));
   const audioRef = useRef<ParadoxAudio | null>(null);
   
   const stateRef = useRef({
@@ -347,6 +348,11 @@ export default function ParadoxGame() {
         if (collision) {
           state.status = 'GAME_OVER';
           setGameState('GAME_OVER');
+          setHighScore(prev => {
+            const newHigh = Math.max(prev, level);
+            localStorage.setItem('arcade_paradox_highscore', newHigh.toString());
+            return newHigh;
+          });
           if (audioRef.current) audioRef.current.playDeath();
         }
       }
@@ -520,7 +526,10 @@ export default function ParadoxGame() {
 
       {/* UI Overlays */}
       {gameState === 'START' && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 backdrop-blur-md z-10 p-6 text-center transition-all duration-700">
+        <div 
+          onClick={() => generateLevel(1)}
+          className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 backdrop-blur-md z-20 p-6 text-center transition-all duration-700 cursor-pointer"
+        >
           <h1 className="text-4xl font-light text-white mb-2 tracking-[0.4em] ml-4">PARADOX</h1>
           <p className="text-gray-400 text-xs tracking-[0.2em] mb-16 uppercase">Temporal Navigation</p>
           
@@ -532,19 +541,17 @@ export default function ParadoxGame() {
             <p className="text-xs text-gray-500 italic text-center">Bend time to clear the path.</p>
           </div>
 
-          <button 
-            onClick={() => generateLevel(1)}
-            className="px-10 py-3 border border-white/30 text-white text-xs tracking-[0.2em] rounded-full hover:bg-white hover:text-black transition-all duration-300"
-          >
-            BEGIN
-          </button>
+          <p className="animate-pulse text-white/70 text-xs tracking-[0.3em] uppercase">
+            TAP ANYWHERE TO BEGIN
+          </p>
         </div>
       )}
 
       {gameState === 'GAME_OVER' && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 backdrop-blur-md z-10 p-6 text-center transition-all duration-700">
           <h2 className="text-2xl font-light text-red-400 mb-2 tracking-[0.3em] ml-3">TIMELINE COLLAPSED</h2>
-          <p className="text-gray-500 text-xs tracking-[0.2em] mb-12 uppercase">Sector {level}</p>
+          <p className="text-white text-xl tracking-[0.2em] mb-2 uppercase">Sector {level}</p>
+          {highScore > 1 && <p className="text-gray-500 text-xs tracking-[0.2em] mb-12 uppercase">Max Sector: {highScore}</p>}
           <button 
             onClick={() => generateLevel(level)}
             className="px-10 py-3 border border-white/30 text-white text-xs tracking-[0.2em] rounded-full hover:bg-white hover:text-black transition-all duration-300"

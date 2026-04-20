@@ -12,6 +12,23 @@ export default function SudokuGame() {
   const [selectedCell, setSelectedCell] = useState<number | null>(null);
   const [conflicts, setConflicts] = useState<Set<number>>(new Set());
   const [isWon, setIsWon] = useState(false);
+  const [showInstructions, setShowInstructions] = useState(() => !localStorage.getItem('arcade_sudoku_seen_instructions'));
+  const [highScore, setHighScore] = useState(() => parseInt(localStorage.getItem('arcade_sudoku_highscore') || '0', 10));
+
+  const dismissInstructions = () => {
+    setShowInstructions(false);
+    localStorage.setItem('arcade_sudoku_seen_instructions', 'true');
+  };
+
+  useEffect(() => {
+    if (isWon) {
+      setHighScore(prev => {
+        const newScore = prev + 1;
+        localStorage.setItem('arcade_sudoku_highscore', newScore.toString());
+        return newScore;
+      });
+    }
+  }, [isWon]);
 
   const startNewGame = useCallback((diff: Difficulty) => {
     const sudoku = getSudoku(diff);
@@ -117,7 +134,10 @@ export default function SudokuGame() {
     <div className="flex flex-col items-center justify-center h-full text-white font-sans w-full max-w-2xl mx-auto p-4 md:p-8">
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-center w-full mb-8 gap-4">
-        <h2 className="text-3xl font-light tracking-[0.3em]">SUDOKU</h2>
+        <div>
+          <h2 className="text-3xl font-light tracking-[0.3em]">SUDOKU</h2>
+          {highScore > 0 && <p className="text-xs text-blue-400 tracking-[0.2em] mt-1 uppercase">Puzzles Solved: {highScore}</p>}
+        </div>
         
         <div className="flex items-center gap-2">
           {(['easy', 'medium', 'hard', 'expert'] as Difficulty[]).map((diff) => (
@@ -138,6 +158,20 @@ export default function SudokuGame() {
 
       {/* Game Board */}
       <div className="relative bg-white/5 p-2 md:p-4 rounded-xl border border-white/10 shadow-2xl mb-8">
+        {showInstructions && (
+          <div 
+            onClick={dismissInstructions}
+            className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 backdrop-blur-md z-20 p-6 text-center cursor-pointer rounded-xl transition-all duration-300"
+          >
+            <div className="space-y-4 max-w-sm text-sm text-gray-300 font-light mb-8 pt-4">
+              <p>Fill the 9x9 grid so that each column, each row, and each of the nine 3x3 subgrids contain all digits from 1 to 9.</p>
+              <p className="hidden md:block text-xs text-gray-400">Select a cell and use your keyboard or the on-screen options below to input numbers.</p>
+            </div>
+            <p className="animate-pulse text-blue-400 text-xs tracking-[0.2em] uppercase mt-4">
+              TAP ANYWHERE TO START
+            </p>
+          </div>
+        )}
         <div className="grid grid-cols-9 gap-0 bg-gray-600 border-2 border-gray-400">
           {userGrid.map((val, index) => {
             const row = Math.floor(index / 9);
