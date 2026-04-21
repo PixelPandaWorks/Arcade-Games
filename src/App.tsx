@@ -4,6 +4,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import { Activity, Dna, Infinity as InfinityIcon, Moon, Lock, Dices, Grid3x3, CircleDashed, Terminal, Layers } from 'lucide-react';
 import SonarGame from './components/SonarGame';
 import SymbiosisGame from './components/SymbiosisGame';
 import ParadoxGame from './components/ParadoxGame';
@@ -190,81 +191,111 @@ export default function App() {
   return (
     <div className="w-full h-screen bg-black font-sans text-white select-none overflow-x-hidden overflow-y-auto">
       <div className="w-full min-h-full flex flex-col">
-        <div className="m-auto flex flex-col items-center py-16 px-4 w-full max-w-md">
+        <div className="m-auto flex flex-col items-center py-16 px-4 w-full max-w-2xl">
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-light tracking-[0.3em] mb-4 text-center leading-tight drop-shadow-md">
             GUDDU'S <br className="md:hidden" /> ARCADIA
           </h1>
           <p className="text-gray-500 text-xs tracking-[0.2em] mb-12 uppercase text-center">Select Protocol</p>
           
-          <div className="flex flex-col gap-4 w-full sm:w-72">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
         <button 
           onClick={() => setActiveGame('sonar')}
-          className="px-8 py-4 border border-white/30 text-xs tracking-[0.3em] rounded-full hover:bg-white hover:text-black transition-all duration-300 flex justify-between items-center group"
+          className="px-6 py-4 border border-white/30 text-xs tracking-[0.3em] rounded-xl hover:bg-white hover:text-black transition-all duration-300 flex justify-between items-center group"
         >
-          <span>SONAR</span>
+          <div className="flex items-center gap-3">
+            <Activity size={18} className="opacity-50 group-hover:opacity-100" />
+            <span>SONAR</span>
+          </div>
           <span className="opacity-0 group-hover:opacity-100 transition-opacity">→</span>
         </button>
         <button 
           onClick={() => setActiveGame('symbiosis')}
-          className="px-8 py-4 border border-white/30 text-xs tracking-[0.3em] rounded-full hover:bg-white hover:text-black transition-all duration-300 flex justify-between items-center group"
+          className="px-6 py-4 border border-white/30 text-xs tracking-[0.3em] rounded-xl hover:bg-white hover:text-black transition-all duration-300 flex justify-between items-center group"
         >
-          <span>SYMBIOSIS</span>
+          <div className="flex items-center gap-3">
+            <Dna size={18} className="opacity-50 group-hover:opacity-100" />
+            <span>SYMBIOSIS</span>
+          </div>
           <span className="opacity-0 group-hover:opacity-100 transition-opacity">→</span>
         </button>
         <button 
           onClick={() => setActiveGame('paradox')}
-          className="px-8 py-4 border border-white/30 text-xs tracking-[0.3em] rounded-full hover:bg-white hover:text-black transition-all duration-300 flex justify-between items-center group"
+          className="px-6 py-4 border border-white/30 text-xs tracking-[0.3em] rounded-xl hover:bg-white hover:text-black transition-all duration-300 flex justify-between items-center group"
         >
-          <span>PARADOX</span>
+          <div className="flex items-center gap-3">
+            <InfinityIcon size={18} className="opacity-50 group-hover:opacity-100" />
+            <span>PARADOX</span>
+          </div>
           <span className="opacity-0 group-hover:opacity-100 transition-opacity">→</span>
         </button>
         <button 
           onClick={() => setActiveGame('umbra')}
-          className="px-8 py-4 border border-white/30 text-xs tracking-[0.3em] rounded-full hover:bg-white hover:text-black transition-all duration-300 flex justify-between items-center group"
+          className="px-6 py-4 border border-white/30 text-xs tracking-[0.3em] rounded-xl hover:bg-white hover:text-black transition-all duration-300 flex justify-between items-center group"
         >
-          <span>UMBRA</span>
+          <div className="flex items-center gap-3">
+            <Moon size={18} className="opacity-50 group-hover:opacity-100" />
+            <span>UMBRA</span>
+          </div>
           <span className="opacity-0 group-hover:opacity-100 transition-opacity">→</span>
         </button>
         <button 
           onClick={() => setActiveGame('cipher')}
-          className="px-8 py-4 border border-white/30 text-xs tracking-[0.3em] rounded-full hover:bg-white hover:text-black transition-all duration-300 flex justify-between items-center group"
+          className="px-6 py-4 border border-white/30 text-xs tracking-[0.3em] rounded-xl hover:bg-white hover:text-black transition-all duration-300 flex justify-between items-center group"
         >
-          <span>CIPHER</span>
+          <div className="flex items-center gap-3">
+            <Lock size={18} className="opacity-50 group-hover:opacity-100" />
+            <span>CIPHER</span>
+          </div>
           <span className="opacity-0 group-hover:opacity-100 transition-opacity">→</span>
         </button>
         <button 
           onClick={() => setActiveGame('yahtzee')}
-          className="px-8 py-4 border border-green-500/50 text-green-400 text-xs tracking-[0.3em] rounded-full hover:bg-green-500 hover:text-black transition-all duration-300 flex justify-between items-center group"
+          className="px-6 py-4 border border-green-500/50 text-green-400 text-xs tracking-[0.3em] rounded-xl hover:bg-green-500 hover:text-black transition-all duration-300 flex justify-between items-center group"
         >
-          <span>YAHTZEE</span>
+          <div className="flex items-center gap-3">
+            <Dices size={18} className="opacity-50 group-hover:opacity-100" />
+            <span>YAHTZEE</span>
+          </div>
           <span className="opacity-0 group-hover:opacity-100 transition-opacity">→</span>
         </button>
         <button 
           onClick={() => setActiveGame('sudoku')}
-          className="px-8 py-4 border border-blue-500/50 text-blue-400 text-xs tracking-[0.3em] rounded-full hover:bg-blue-500 hover:text-black transition-all duration-300 flex justify-between items-center group"
+          className="px-6 py-4 border border-blue-500/50 text-blue-400 text-xs tracking-[0.3em] rounded-xl hover:bg-blue-500 hover:text-black transition-all duration-300 flex justify-between items-center group"
         >
-          <span>SUDOKU</span>
+          <div className="flex items-center gap-3">
+            <Grid3x3 size={18} className="opacity-50 group-hover:opacity-100" />
+            <span>SUDOKU</span>
+          </div>
           <span className="opacity-0 group-hover:opacity-100 transition-opacity">→</span>
         </button>
         <button 
           onClick={() => setActiveGame('eclipse')}
-          className="px-8 py-4 border border-cyan-500/50 text-cyan-400 text-xs tracking-[0.3em] rounded-full hover:bg-cyan-500 hover:text-black transition-all duration-300 flex justify-between items-center group"
+          className="px-6 py-4 border border-cyan-500/50 text-cyan-400 text-xs tracking-[0.3em] rounded-xl hover:bg-cyan-500 hover:text-black transition-all duration-300 flex justify-between items-center group"
         >
-          <span>ECLIPSE</span>
+          <div className="flex items-center gap-3">
+            <CircleDashed size={18} className="opacity-50 group-hover:opacity-100" />
+            <span>ECLIPSE</span>
+          </div>
           <span className="opacity-0 group-hover:opacity-100 transition-opacity">→</span>
         </button>
         <button 
           onClick={() => setActiveGame('enigma')}
-          className="px-8 py-4 border border-fuchsia-500/50 text-fuchsia-400 text-xs tracking-[0.3em] rounded-full hover:bg-fuchsia-500 hover:text-black transition-all duration-300 flex justify-between items-center group"
+          className="px-6 py-4 border border-fuchsia-500/50 text-fuchsia-400 text-xs tracking-[0.3em] rounded-xl hover:bg-fuchsia-500 hover:text-black transition-all duration-300 flex justify-between items-center group"
         >
-          <span>ENIGMA</span>
+          <div className="flex items-center gap-3">
+            <Terminal size={18} className="opacity-50 group-hover:opacity-100" />
+            <span>ENIGMA</span>
+          </div>
           <span className="opacity-0 group-hover:opacity-100 transition-opacity">→</span>
         </button>
         <button 
           onClick={() => setActiveGame('override')}
-          className="px-8 py-4 border border-purple-500/50 text-purple-400 text-xs tracking-[0.3em] rounded-full hover:bg-purple-500 hover:text-black transition-all duration-300 flex justify-between items-center group shadow-[0_0_15px_rgba(168,85,247,0.2)]"
+          className="px-6 py-4 border border-purple-500/50 text-purple-400 text-xs tracking-[0.3em] rounded-xl hover:bg-purple-500 hover:text-black transition-all duration-300 flex justify-between items-center group shadow-[0_0_15px_rgba(168,85,247,0.2)]"
         >
-          <span>OVERRIDE</span>
+          <div className="flex items-center gap-3">
+            <Layers size={18} className="opacity-50 group-hover:opacity-100" />
+            <span>OVERRIDE</span>
+          </div>
           <span className="opacity-0 group-hover:opacity-100 transition-opacity">→</span>
         </button>
       </div>
