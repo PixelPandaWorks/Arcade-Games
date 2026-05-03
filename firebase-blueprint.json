@@ -120,6 +120,56 @@
         }
       },
       "required": ["status", "hostId", "playerIds", "playerNames", "currentTurnIndex", "direction", "deck", "discardPile", "currentColor", "hands", "unoFlags", "createdAt", "updatedAt"]
+    },
+    "LudoGame": {
+      "title": "LudoGame",
+      "description": "A multiplayer Ludo game session",
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["waiting", "playing", "finished"]
+        },
+        "hostId": {
+          "type": "string"
+        },
+        "playerIds": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "playerNames": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "playerColors": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "currentTurnIndex": {
+          "type": "number"
+        },
+        "tokens": {
+          "type": "object"
+        },
+        "diceValue": {
+          "type": "number"
+        },
+        "diceRolled": {
+          "type": "boolean"
+        },
+        "winnerId": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["status", "hostId", "playerIds", "playerNames", "playerColors", "currentTurnIndex", "tokens", "diceValue", "diceRolled", "createdAt", "updatedAt"]
     }
   },
   "firestore": {
@@ -130,6 +180,10 @@
     "/override_games/{gameId}": {
       "schema": { "$ref": "#/entities/OverrideGame" },
       "description": "Override game sessions"
+    },
+    "/ludo_games/{gameId}": {
+      "schema": { "$ref": "#/entities/LudoGame" },
+      "description": "Ludo game sessions"
     }
   }
 }

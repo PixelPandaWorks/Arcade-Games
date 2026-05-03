@@ -51,7 +51,7 @@ service cloud.firestore {
     }
 
     match /games/{gameId} {
-      allow read: if isAuthenticated() && isValidId(gameId) && (existing().status == 'waiting' || isPlayerInYahtzee());
+      allow read: if isAuthenticated() && isValidId(gameId) && (resource == null || existing().status == 'waiting' || isPlayerInYahtzee());
       
       allow list: if isAuthenticated(); // To allow querying for waiting games
 
@@ -107,7 +107,7 @@ service cloud.firestore {
     }
 
     match /override_games/{gameId} {
-      allow read: if isAuthenticated() && isValidId(gameId) && (existing().status == 'waiting' || isPlayerInOverride());
+      allow read: if isAuthenticated() && isValidId(gameId) && (resource == null || existing().status == 'waiting' || isPlayerInOverride());
       
       allow list: if isAuthenticated(); // To allow querying for waiting games
       
@@ -126,6 +126,59 @@ service cloud.firestore {
                       (isPlayerInOverride() && existing().status == 'playing') ||
                       (isPlayerInOverride() && existing().status == 'waiting' && incoming().status == 'playing') ||
                       (isPlayerInOverride() && incoming().status == 'finished')
+                    );
+    }
+    // ===================================
+    // LUDO GAME
+    // ===================================
+
+    function isPlayerInLudo() {
+      return isAuthenticated() && request.auth.uid in existing().playerIds;
+    }
+
+    function isJoiningLudoGame() {
+      return incoming().status == 'waiting' &&
+             request.auth.uid in incoming().playerIds &&
+             !(request.auth.uid in existing().playerIds);
+    }
+
+    function isValidLudoGame(data) {
+      return data.keys().hasAll(['status', 'hostId', 'playerIds', 'playerNames', 'playerColors', 'currentTurnIndex', 'tokens', 'diceValue', 'diceRolled', 'createdAt', 'updatedAt']) &&
+             data.status in ['waiting', 'playing', 'finished'] &&
+             data.hostId is string &&
+             data.playerIds is list &&
+             data.playerIds.size() <= 4 &&
+             data.playerNames is map &&
+             data.playerColors is map &&
+             data.currentTurnIndex is number &&
+             data.tokens is map &&
+             data.diceValue is number &&
+             data.diceRolled is bool &&
+             (data.winnerId == null || data.winnerId is string) &&
+             data.createdAt is timestamp &&
+             data.updatedAt is timestamp;
+    }
+
+    match /ludo_games/{gameId} {
+      allow read: if isAuthenticated() && isValidId(gameId) && (resource == null || existing().status == 'waiting' || isPlayerInLudo());
+      
+      allow list: if isAuthenticated(); // To allow querying for waiting games
+      
+      allow create: if isAuthenticated() && 
+                    isValidId(gameId) &&
+                    isValidLudoGame(incoming()) &&
+                    incoming().hostId == request.auth.uid &&
+                    incoming().playerIds[0] == request.auth.uid &&
+                    incoming().playerIds.size() == 1;
+                    
+      allow update: if isAuthenticated() && 
+                    isValidId(gameId) &&
+                    isValidLudoGame(incoming()) &&
+                    (
+                      isJoiningLudoGame() || 
+                      (isPlayerInLudo() && existing().status == 'playing') ||
+                      (isPlayerInLudo() && existing().status == 'waiting' && incoming().status == 'playing') ||
+                      (isPlayerInLudo() && incoming().status == 'finished')
                     );
     }
   }

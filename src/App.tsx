@@ -15,12 +15,14 @@ import SudokuGame from './components/SudokuGame';
 import EclipseGame from './components/EclipseGame';
 import EnigmaGame from './components/EnigmaGame';
 import OverrideGame from './components/OverrideGame';
+import LudoGame from './components/LudoGame';
+import { Target } from 'lucide-react'; // For Ludo icon
 
 export default function App() {
-  const [activeGame, setActiveGame] = useState<'menu' | 'sonar' | 'symbiosis' | 'paradox' | 'umbra' | 'cipher' | 'yahtzee' | 'sudoku' | 'eclipse' | 'enigma' | 'override'>(() => {
+  const [activeGame, setActiveGame] = useState<'menu' | 'sonar' | 'symbiosis' | 'paradox' | 'umbra' | 'cipher' | 'yahtzee' | 'sudoku' | 'eclipse' | 'enigma' | 'override' | 'ludo'>(() => {
     const params = new URLSearchParams(window.location.search);
     const gameParam = params.get('game');
-    const validGames = ['sonar', 'symbiosis', 'paradox', 'umbra', 'cipher', 'yahtzee', 'sudoku', 'eclipse', 'enigma', 'override'];
+    const validGames = ['sonar', 'symbiosis', 'paradox', 'umbra', 'cipher', 'yahtzee', 'sudoku', 'eclipse', 'enigma', 'override', 'ludo'];
     if (gameParam && validGames.includes(gameParam)) {
       return gameParam as any;
     }
@@ -188,6 +190,20 @@ export default function App() {
     );
   }
 
+  if (activeGame === 'ludo') {
+    return (
+      <div className="w-full h-screen bg-[#0a0a0c] overflow-hidden relative">
+        <button 
+          onClick={() => setActiveGame('menu')} 
+          className="absolute top-8 right-8 z-50 text-white/50 hover:text-white text-xs tracking-[0.2em] transition-colors"
+        >
+          EXIT
+        </button>
+        <LudoGame initialJoinId={joinId} />
+      </div>
+    );
+  }
+
   return (
     <div className="w-full h-screen bg-black font-sans text-white select-none overflow-x-hidden overflow-y-auto">
       <div className="w-full min-h-full flex flex-col">
@@ -297,6 +313,16 @@ export default function App() {
             <span>OVERRIDE</span>
           </div>
           <span className="opacity-0 group-hover:opacity-100 transition-opacity">→</span>
+        </button>
+        <button 
+          onClick={() => setActiveGame('ludo')}
+          className="px-6 py-4 border border-red-500/50 text-red-500 text-xs tracking-[0.3em] rounded-xl hover:bg-red-500 hover:text-white transition-all duration-300 flex justify-between items-center group"
+          style={{ gridColumn: '1 / -1' }}
+        >
+          <div className="flex items-center justify-center gap-3 w-full">
+            <Target size={18} className="opacity-50 group-hover:opacity-100" />
+            <span>LUDO</span>
+          </div>
         </button>
       </div>
       </div>
