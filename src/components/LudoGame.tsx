@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { auth, db } from '../firebase';
+import { signInAnonymously, updateProfile } from 'firebase/auth';
 import { collection, doc, addDoc, onSnapshot, updateDoc, query, where, getDocs, serverTimestamp, getDoc, setDoc } from 'firebase/firestore';
 import { Copy, Plus, Play, User as UserIcon, RefreshCcw, Crown, Home, Star } from 'lucide-react';
 
@@ -57,6 +58,23 @@ export default function LudoGame({ initialJoinId }: { initialJoinId?: string }) 
     });
     return () => unsub();
   }, []);
+
+  const handleLogin = async () => {
+    if (!alias.trim()) return;
+    setError('');
+    try {
+      let authUser = auth.currentUser;
+      if (!authUser) {
+        const result = await signInAnonymously(auth);
+        authUser = result.user;
+      }
+      await updateProfile(authUser, { displayName: alias.trim() });
+      setUser(authUser);
+      setAliasSet(true);
+    } catch (e: any) {
+      setError(e.message);
+    }
+  };
 
   useEffect(() => {
     if (!gameId || !user || !aliasSet) return;
@@ -426,8 +444,9 @@ export default function LudoGame({ initialJoinId }: { initialJoinId?: string }) 
             maxLength={12}
             className="w-full bg-white/5 border border-white/20 p-4 rounded text-center text-white placeholder:text-white/30 tracking-[0.2em] focus:outline-none focus:border-red-500 transition-colors"
           />
+          {error && <div className="text-red-400 text-sm tracking-widest text-center">{error}</div>}
           <button 
-            onClick={() => setAliasSet(true)}
+            onClick={handleLogin}
             disabled={!alias.trim()}
             className="w-full bg-red-600/20 border border-red-500 text-red-400 p-4 rounded hover:bg-red-500 hover:text-white transition-all disabled:opacity-50 tracking-[0.2em]"
           >
