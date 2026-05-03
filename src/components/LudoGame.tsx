@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { auth, db } from '../firebase';
 import { collection, doc, addDoc, onSnapshot, updateDoc, query, where, getDocs, serverTimestamp, getDoc, setDoc } from 'firebase/firestore';
-import { Copy, Plus, Play, User as UserIcon, RefreshCcw, Dice1, Dice2, Dice3, Dice4, Dice5, Dice6, Crown, Home } from 'lucide-react';
+import { Copy, Plus, Play, User as UserIcon, RefreshCcw, Crown, Home, Star } from 'lucide-react';
 
 interface LudoGameData {
   id?: string;
@@ -20,7 +20,7 @@ interface LudoGameData {
   updatedAt?: any;
 }
 
-const COLORS = ['red', 'green', 'yellow', 'blue'];
+const COLORS = ['yellow', 'green', 'red', 'blue'];
 const COLOR_HEX: Record<string, string> = {
   red: '#ef4444',
   green: '#22c55e',
@@ -29,12 +29,11 @@ const COLOR_HEX: Record<string, string> = {
 };
 
 // Map each color to its starting position on the main track (0-51)
-// We will consider the track as a circle from 0 to 51.
-// Red starts at 0, Green at 13, Yellow at 26, Blue at 39.
+// Yellow starts Top-Left, Green Top-Right, Red Bottom-Right, Blue Bottom-Left
 const START_POSITIONS: Record<string, number> = {
-  red: 0,
+  yellow: 0,
   green: 13,
-  yellow: 26,
+  red: 26,
   blue: 39
 };
 
@@ -277,31 +276,30 @@ export default function LudoGame({ initialJoinId }: { initialJoinId?: string }) 
   };
 
   // --- RENDER HELPERS ---
-  const boardCells = Array.from({ length: 15 * 15 }, (_, i) => {
-    const r = Math.floor(i / 15);
-    const c = i % 15;
-    return { r, c, idx: i };
-  });
-
-  // Mapping 52 absolute track positions to logical (x,y)
+  
+  // Mapping 52 absolute track positions to logical (x,y) grid
   const trackPath = [
-    // Red Start line to bottom
-    {x:1, y:6},{x:2, y:6},{x:3, y:6},{x:4, y:6},{x:5, y:6},
-    {x:6, y:5},{x:6, y:4},{x:6, y:3},{x:6, y:2},{x:6, y:1},{x:6, y:0},
+    // Yellow Start line to right
+    {x:1, y:6},{x:2, y:6},{x:3, y:6},{x:4, y:6},{x:5, y:6}, // 0..4
+    {x:6, y:5},{x:6, y:4},{x:6, y:3},{x:6, y:2},{x:6, y:1},{x:6, y:0}, // 5..10
     // Top Green section
-    {x:7, y:0},{x:8, y:0},
-    {x:8, y:1},{x:8, y:2},{x:8, y:3},{x:8, y:4},{x:8, y:5},
-    {x:9, y:6},{x:10,y:6},{x:11,y:6},{x:12,y:6},{x:13,y:6},{x:14,y:6},
-    // Right Yellow section
-    {x:14,y:7},{x:14,y:8},
-    {x:13,y:8},{x:12,y:8},{x:11,y:8},{x:10,y:8},{x:9, y:8},
-    {x:8, y:9},{x:8, y:10},{x:8,y:11},{x:8,y:12},{x:8,y:13},{x:8,y:14},
+    {x:7, y:0}, // 11
+    {x:8, y:0}, // 12
+    {x:8, y:1},{x:8, y:2},{x:8, y:3},{x:8, y:4},{x:8, y:5}, // 13..17
+    {x:9, y:6},{x:10,y:6},{x:11,y:6},{x:12,y:6},{x:13,y:6},{x:14,y:6}, // 18..23
+    // Right Red section
+    {x:14,y:7}, // 24
+    {x:14,y:8}, // 25
+    {x:13,y:8},{x:12,y:8},{x:11,y:8},{x:10,y:8},{x:9, y:8}, // 26..30
+    {x:8, y:9},{x:8, y:10},{x:8,y:11},{x:8,y:12},{x:8,y:13},{x:8,y:14}, // 31..36
     // Bottom Blue section
-    {x:7, y:14},{x:6, y:14},
-    {x:6, y:13},{x:6, y:12},{x:6, y:11},{x:6, y:10},{x:6, y:9},
-    {x:5, y:8},{x:4, y:8},{x:3, y:8},{x:2, y:8},{x:1, y:8},{x:0, y:8},
-    // Left Red start again
-    {x:0, y:7},{x:0, y:6}
+    {x:7, y:14}, // 37
+    {x:6, y:14}, // 38
+    {x:6, y:13},{x:6, y:12},{x:6, y:11},{x:6, y:10},{x:6, y:9}, // 39..43
+    {x:5, y:8},{x:4, y:8},{x:3, y:8},{x:2, y:8},{x:1, y:8},{x:0, y:8}, // 44..49
+    // Left Yellow start again
+    {x:0, y:7}, // 50
+    {x:0, y:6}  // 51
   ];
 
   const getAbsPosCoords = (absPos: number) => {
@@ -310,39 +308,106 @@ export default function LudoGame({ initialJoinId }: { initialJoinId?: string }) 
 
   const getHomePathCoords = (color: string, steps: number) => {
     // steps from 1 to 5
-    if (color === 'red') return { x: steps, y: 7 };
+    if (color === 'yellow') return { x: steps, y: 7 };
     if (color === 'green') return { x: 7, y: steps };
-    if (color === 'yellow') return { x: 14 - steps, y: 7 };
+    if (color === 'red') return { x: 14 - steps, y: 7 };
     if (color === 'blue') return { x: 7, y: 14 - steps };
     return { x: 7, y: 7 };
   };
 
-  const getTokenCoords = (pid: string, tokenIdx: number) => {
+  const getTokenCoordsPct = (pid: string, tokenIdx: number) => {
     if (!game) return null;
     const color = game.playerColors[pid];
     const pos = game.tokens[pid][tokenIdx];
     
     if (pos === -1) {
-      // Base positions
-      let bx = 0, by = 0;
-      if (color === 'red') { bx = 1; by = 1; }
-      if (color === 'green') { bx = 10; by = 1; }
-      if (color === 'yellow') { bx = 10; by = 10; }
-      if (color === 'blue') { bx = 1; by = 10; }
+      // Base positions in percentages %
+      let baseL = 0, baseT = 0;
+      if (color === 'yellow') { baseL = 0; baseT = 0; }
+      if (color === 'green') { baseL = 60; baseT = 0; }
+      if (color === 'red') { baseL = 60; baseT = 60; }
+      if (color === 'blue') { baseL = 0; baseT = 60; }
       
-      const offsets = [{dx: 1, dy: 1}, {dx: 3, dy: 1}, {dx: 1, dy: 3}, {dx: 3, dy: 3}];
-      return { x: bx + offsets[tokenIdx].dx, y: by + offsets[tokenIdx].dy };
+      const offsets = [
+        { l: 11, t: 11 }, { l: 29, t: 11 },
+        { l: 11, t: 29 }, { l: 29, t: 29 }
+      ];
+      return { x: baseL + offsets[tokenIdx].l, y: baseT + offsets[tokenIdx].t, isGrid: false };
     }
     
+    let gx, gy;
     if (pos <= 50) {
       const absPos = (START_POSITIONS[color] + pos) % 52;
-      return getAbsPosCoords(absPos);
+      const gc = getAbsPosCoords(absPos);
+      gx = gc.x; gy = gc.y;
     } else if (pos <= 55) {
-      return getHomePathCoords(color, pos - 50);
+      const gc = getHomePathCoords(color, pos - 50);
+      gx = gc.x; gy = gc.y;
     } else {
       // Center (completed)
-      return { x: 7, y: 7 };
+      gx = 7; gy = 7;
     }
+    
+    return { x: (gx + 0.5) * (100 / 15), y: (gy + 0.5) * (100 / 15), isGrid: true };
+  };
+
+  const allTokens: Array<{ pid: string, tIdx: number, coords: { x: number, y: number, isGrid: boolean }, key: string }> = [];
+  const gridOccupancy: Record<string, any[]> = {};
+
+  if (game) {
+    game.playerIds.forEach(pid => {
+       [0,1,2,3].forEach(tIdx => {
+          const coords = getTokenCoordsPct(pid, tIdx);
+          if (!coords) return;
+          const key = coords.isGrid ? `${coords.x.toFixed(2)}_${coords.y.toFixed(2)}` : `base_${pid}_${tIdx}`;
+          
+          if (!gridOccupancy[key]) gridOccupancy[key] = [];
+          
+          const tokenData = { pid, tIdx, coords, key };
+          allTokens.push(tokenData);
+          gridOccupancy[key].push(tokenData);
+       });
+    });
+  }
+
+  const BlackWhiteDice = ({ val, rolling, color }: { val: number, rolling: boolean, color: string }) => {
+    const dots: string[] = [];
+    if (val === 1) dots.push('1/2_1/2');
+    if (val === 2) dots.push('1/4_1/4', '3/4_3/4');
+    if (val === 3) dots.push('1/4_1/4', '1/2_1/2', '3/4_3/4');
+    if (val === 4) dots.push('1/4_1/4', '3/4_1/4', '1/4_3/4', '3/4_3/4');
+    if (val === 5) dots.push('1/4_1/4', '3/4_1/4', '1/2_1/2', '1/4_3/4', '3/4_3/4');
+    if (val === 6) dots.push('1/4_1/4', '3/4_1/4', '1/4_1/2', '3/4_1/2', '1/4_3/4', '3/4_3/4');
+
+    return (
+      <motion.div 
+         className={`relative w-12 h-12 rounded-xl bg-[#000] border-2 shadow-[inset_0_0_10px_rgba(255,255,255,0.2)]`}
+         style={{ borderColor: COLOR_HEX[color], boxShadow: `0 0 15px ${COLOR_HEX[color]}40` }}
+         animate={rolling ? { scale: [1, 1.2, 1], rotateX: [0, 180, 360] } : {}}
+         transition={{ duration: 0.3 }}
+      >
+         {dots.map(d => {
+            const [x, y] = d.split('_');
+            let l = x === '1/4' ? '25%' : x === '1/2' ? '50%' : '75%';
+            let t = y === '1/4' ? '25%' : y === '1/2' ? '50%' : '75%';
+            return <div key={d} className="absolute w-[20%] h-[20%] bg-white rounded-full -translate-x-1/2 -translate-y-1/2 shadow-[0_0_2px_rgba(255,255,255,0.8)]" style={{ left: l, top: t }} />
+         })}
+      </motion.div>
+    );
+  };
+
+  const BaseOverlay = ({ color, top, left }: { color: string, top: string, left: string }) => {
+    const hex = COLOR_HEX[color];
+    return (
+      <div className="absolute w-[40%] h-[40%] flex items-center justify-center p-[2%]" style={{ top, left, backgroundColor: hex, border: '0.5px solid rgba(255,255,255,0.4)', zIndex: 10 }}>
+         <div className="w-[85%] h-[85%] bg-[#080808] rounded-[2rem] border-[3px] flex items-center justify-center relative shadow-[inset_0_0_30px_rgba(0,0,0,1)]" style={{ borderColor: hex }}>
+            <div className="absolute top-[18%] left-[18%] w-[25%] h-[25%] rounded-full bg-black border-[3px] shadow-[inset_0_0_8px_rgba(255,255,255,0.6)]" style={{ borderColor: hex }} />
+            <div className="absolute top-[18%] right-[18%] w-[25%] h-[25%] rounded-full bg-black border-[3px] shadow-[inset_0_0_8px_rgba(255,255,255,0.6)]" style={{ borderColor: hex }} />
+            <div className="absolute bottom-[18%] left-[18%] w-[25%] h-[25%] rounded-full bg-black border-[3px] shadow-[inset_0_0_8px_rgba(255,255,255,0.6)]" style={{ borderColor: hex }} />
+            <div className="absolute bottom-[18%] right-[18%] w-[25%] h-[25%] rounded-full bg-black border-[3px] shadow-[inset_0_0_8px_rgba(255,255,255,0.6)]" style={{ borderColor: hex }} />
+         </div>
+      </div>
+    )
   };
 
   if (!user || !aliasSet) {
@@ -458,29 +523,71 @@ export default function LudoGame({ initialJoinId }: { initialJoinId?: string }) 
   const turnColor = game.playerColors[game.playerIds[game.currentTurnIndex]] || 'white';
   const myColor = game.playerColors[user.uid];
 
-  const getDiceIcon = (val: number) => {
-    switch(val) {
-      case 1: return <Dice1 size={32} />;
-      case 2: return <Dice2 size={32} />;
-      case 3: return <Dice3 size={32} />;
-      case 4: return <Dice4 size={32} />;
-      case 5: return <Dice5 size={32} />;
-      case 6: return <Dice6 size={32} />;
-      default: return <Dice1 size={32} />;
+  const pathCells = [];
+  for (let r = 0; r < 15; r++) {
+    for (let c = 0; c < 15; c++) {
+       if ((r < 6 || r > 8) && (c < 6 || c > 8)) continue; // skip bases
+       if (r >= 6 && r <= 8 && c >= 6 && c <= 8) continue; // skip center
+       
+       let bg = '#080808';
+       if (r === 7 && c > 0 && c < 6) bg = COLOR_HEX.yellow;
+       if (c === 7 && r > 0 && r < 6) bg = COLOR_HEX.green;
+       if (r === 7 && c > 8 && c < 14) bg = COLOR_HEX.red;
+       if (c === 7 && r > 8 && r < 14) bg = COLOR_HEX.blue;
+       
+       let isStar = false;
+       if (r === 8 && c === 2) isStar = true;
+       if (r === 2 && c === 6) isStar = true;
+       if (r === 6 && c === 12) isStar = true;
+       if (r === 12 && c === 8) isStar = true;
+
+       let arrow = null;
+       if (r === 7 && c === 0) arrow = <span className="text-[#eab308] font-black text-xs drop-shadow-[0_0_5px_rgba(234,179,8,0.8)]">❯</span>;
+       if (r === 0 && c === 7) arrow = <span className="text-[#22c55e] font-black text-xs drop-shadow-[0_0_5px_rgba(34,197,94,0.8)]">▼</span>;
+       if (r === 7 && c === 14) arrow = <span className="text-[#ef4444] font-black text-xs drop-shadow-[0_0_5px_rgba(239,68,68,0.8)]">❮</span>;
+       if (r === 14 && c === 7) arrow = <span className="text-[#3b82f6] font-black text-xs drop-shadow-[0_0_5px_rgba(59,130,246,0.8)]">▲</span>;
+
+       pathCells.push(
+         <div key={`${r}-${c}`} className="absolute flex items-center justify-center p-1" style={{ 
+            left: `${c * 100 / 15}%`, top: `${r * 100 / 15}%`, width: `${100 / 15}%`, height: `${100 / 15}%`, 
+            backgroundColor: bg,
+            border: '0.5px solid rgba(255,255,255,0.4)',
+            zIndex: 5
+         }}>
+            {isStar && <Star size={12} fill="rgba(255,255,255,0.2)" className="text-white/50" />}
+            {arrow}
+         </div>
+       )
     }
-  };
+  }
+
+  const CenterTriangles = () => (
+    <div className="absolute w-[20%] h-[20%] top-[40%] left-[40%] z-[6]">
+       <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none">
+         <polygon points="0,0 100,0 50,50" fill={COLOR_HEX.green} stroke="rgba(255,255,255,0.5)" strokeWidth="1" />
+         <polygon points="100,0 100,100 50,50" fill={COLOR_HEX.red} stroke="rgba(255,255,255,0.5)" strokeWidth="1" />
+         <polygon points="0,100 100,100 50,50" fill={COLOR_HEX.blue} stroke="rgba(255,255,255,0.5)" strokeWidth="1" />
+         <polygon points="0,0 0,100 50,50" fill={COLOR_HEX.yellow} stroke="rgba(255,255,255,0.5)" strokeWidth="1" />
+       </svg>
+    </div>
+  );
 
   return (
     <div className="flex flex-col h-full bg-[#0a0a0c] text-white font-sans w-full mx-auto relative overflow-hidden pb-8">
       {/* Header */}
-      <div className="flex justify-between items-center p-4 border-b border-white/5 shrink-0 z-10 w-full max-w-xl mx-auto">
-         <div className="flex gap-4">
+      <div className="flex justify-center items-center p-4 border-b border-white/5 shrink-0 z-10 w-full max-w-2xl mx-auto">
+         <div className="flex gap-4 flex-wrap justify-center">
             {game.playerIds.map(pid => {
                const isActive = game.playerIds[game.currentTurnIndex] === pid;
                const pColor = game.playerColors[pid];
                return (
-                 <div key={pid} className={`flex flex-col p-2 rounded border transition-all ${isActive ? 'bg-white/10 scale-110' : 'bg-black/40 opacity-50'} shadow-xl`} style={{ borderColor: COLOR_HEX[pColor] }}>
+                 <div key={pid} className={`flex items-center gap-3 p-2 rounded border transition-all ${isActive ? 'bg-white/10 scale-110 shadow-xl' : 'bg-black/40 opacity-50'}`} style={{ borderColor: COLOR_HEX[pColor] }}>
                     <span className="text-[10px] tracking-widest font-bold" style={{ color: COLOR_HEX[pColor] }}>{game.playerNames[pid]}</span>
+                    {isActive && (
+                      <div className="scale-[0.6] origin-right -my-2 mr-[-4px]">
+                         <BlackWhiteDice val={game.diceValue} rolling={!game.diceRolled} color={pColor} />
+                      </div>
+                    )}
                  </div>
                );
             })}
@@ -500,93 +607,70 @@ export default function LudoGame({ initialJoinId }: { initialJoinId?: string }) 
       <div className="flex-1 flex flex-col md:flex-row items-center justify-center gap-8 w-full max-w-5xl mx-auto p-4 z-10">
         
         {/* LUDO BOARD */}
-        <div className="relative w-[320px] h-[320px] sm:w-[450px] sm:h-[450px] bg-white border-2 border-white rounded shrink-0" style={{ backgroundImage: 'repeating-linear-gradient(45deg, #eee 25%, transparent 25%, transparent 75%, #eee 75%, #eee), repeating-linear-gradient(45deg, #eee 25%, #fff 25%, #fff 75%, #eee 75%, #eee)', backgroundSize: '20px 20px' }}>
+        <div className="relative w-[340px] h-[340px] sm:w-[480px] sm:h-[480px] bg-black border-2 border-white/20 shrink-0 select-none shadow-[0_0_50px_rgba(0,0,0,0.8)]">
             
-            {/* Draw grid cells overlay */}
-            <div className="absolute inset-0 grid grid-cols-15 grid-rows-15">
-              {boardCells.map(cell => {
-                 let bg = 'transparent';
-                 let border = 'border-black/10 border-[0.5px]';
-                 
-                 // Colored Bases
-                 if (cell.r < 6 && cell.c < 6) bg = COLOR_HEX.red;
-                 if (cell.r < 6 && cell.c > 8) bg = COLOR_HEX.green;
-                 if (cell.r > 8 && cell.c > 8) bg = COLOR_HEX.yellow;
-                 if (cell.r > 8 && cell.c < 6) bg = COLOR_HEX.blue;
-
-                 // Safe zones & Paths
-                 if ((cell.r === 6 && cell.c === 1) || (cell.r === 7 && cell.c > 0 && cell.c < 6)) bg = COLOR_HEX.red;
-                 if ((cell.r === 1 && cell.c === 8) || (cell.c === 7 && cell.r > 0 && cell.r < 6)) bg = COLOR_HEX.green;
-                 if ((cell.r === 8 && cell.c === 13) || (cell.r === 7 && cell.c > 8 && cell.c < 14)) bg = COLOR_HEX.yellow;
-                 if ((cell.r === 13 && cell.c === 6) || (cell.c === 7 && cell.r > 8 && cell.r < 14)) bg = COLOR_HEX.blue;
-                 
-                 // Star / Safe Squares (approx)
-                 if (cell.r === 8 && cell.c === 2) bg = '#e2e8f0'; // Red safe
-                 if (cell.r === 2 && cell.c === 6) bg = '#e2e8f0'; // Green safe
-                 if (cell.r === 6 && cell.c === 12) bg = '#e2e8f0'; // Yellow safe
-                 if (cell.r === 12 && cell.c === 8) bg = '#e2e8f0'; // Blue safe
-                 
-                 // Center Home
-                 if (cell.r >= 6 && cell.r <= 8 && cell.c >= 6 && cell.c <= 8) {
-                    bg = 'transparent'; // Let CSS triangle handle it or just keep black
-                    border = '';
-                 }
-
-                 return (
-                   <div key={cell.idx} className={`w-full h-full ${border}`} style={{ backgroundColor: bg }}>
-                      {/* Base white squares */}
-                      {cell.r === 1 && cell.c === 1 && <div className="ml-1 mt-1 w-[400%] h-[400%] bg-white rounded-lg flex items-center justify-center p-3"><div className="w-full h-full rounded border-2 border-red-500"></div></div>}
-                      {cell.r === 1 && cell.c === 10 && <div className="ml-1 mt-1 w-[400%] h-[400%] bg-white rounded-lg flex items-center justify-center p-3"><div className="w-full h-full rounded border-2 border-green-500"></div></div>}
-                      {cell.r === 10 && cell.c === 10 && <div className="ml-1 mt-1 w-[400%] h-[400%] bg-white rounded-lg flex items-center justify-center p-3"><div className="w-full h-full rounded border-2 border-yellow-500"></div></div>}
-                      {cell.r === 10 && cell.c === 1 && <div className="ml-1 mt-1 w-[400%] h-[400%] bg-white rounded-lg flex items-center justify-center p-3"><div className="w-full h-full rounded border-2 border-blue-500"></div></div>}
-                      
-                      {/* Home Triangles in Center */}
-                      {cell.r === 6 && cell.c === 6 && (
-                        <div className="absolute top-[40%] left-[40%] w-[20%] h-[20%] border-[2px] border-black/50 overflow-hidden transform rotate-45 z-0 bg-white">
-                        </div>
-                      )}
-                   </div>
-                 );
-              })}
-            </div>
+            <BaseOverlay color="yellow" top="0" left="0" />
+            <BaseOverlay color="green" top="0" left="60%" />
+            <BaseOverlay color="red" top="60%" left="60%" />
+            <BaseOverlay color="blue" top="60%" left="0" />
+            
+            {pathCells}
+            <CenterTriangles />
             
             {/* Tokens Layer */}
-            {game.playerIds.map(pid => {
-               return [0, 1, 2, 3].map(tIdx => {
-                  const coords = getTokenCoords(pid, tIdx);
-                  if (!coords) return null;
-                  
-                  const pColor = game.playerColors[pid];
-                  const tPos = game.tokens[pid][tIdx];
+            {allTokens.map(tk => {
+                  const pColor = game.playerColors[tk.pid];
+                  const tPos = game.tokens[tk.pid][tk.tIdx];
 
-                  // is this token movable right now?
                   let isMovable = false;
-                  if (isMyTurn && game.diceRolled && pid === user.uid) {
+                  if (isMyTurn && game.diceRolled && tk.pid === user.uid) {
                     if (tPos === -1 && game.diceValue === 6) isMovable = true;
                     if (tPos >= 0 && tPos < 57 && tPos + game.diceValue <= 57) isMovable = true;
                   }
 
-                  // calc position (percentage)
-                  const left = `${(coords.x / 15) * 100}%`;
-                  const top = `${(coords.y / 15) * 100}%`;
+                  const ocArr = gridOccupancy[tk.key];
+                  const subIdx = ocArr.findIndex(o => o.pid === tk.pid && o.tIdx === tk.tIdx);
+                  const total = ocArr.length;
+
+                  let transX = "-50%";
+                  let transY = "-50%";
+                  
+                  if (tk.coords.isGrid && total > 1) {
+                     let ox = 0, oy = 0;
+                     if (total === 2) {
+                        ox = subIdx === 0 ? -4 : 4;
+                     } else if (total === 3) {
+                        if (subIdx === 0) { ox = -4; oy = -4; }
+                        if (subIdx === 1) { ox = 4; oy = -4; }
+                        if (subIdx === 2) { ox = 0; oy = 4; }
+                     } else {
+                        ox = subIdx % 2 === 0 ? -4 : 4;
+                        oy = subIdx < 2 ? -4 : 4;
+                     }
+                     transX = `calc(-50% + ${ox}px)`;
+                     transY = `calc(-50% + ${oy}px)`;
+                  }
+
+                  const left = `${tk.coords.x}%`;
+                  const top = `${tk.coords.y}%`;
 
                   return (
                     <motion.div 
-                      key={`${pid}-${tIdx}`}
-                      className="absolute w-[6%] h-[6%] rounded-full shadow-[0_2px_5px_rgba(0,0,0,0.5)] border-2 border-white -translate-x-[10%] -translate-y-[10%] z-20 flex items-center justify-center"
+                      key={`${tk.pid}-${tk.tIdx}`}
+                      className="absolute w-[5.5%] h-[5.5%] rounded-full shadow-[0_2px_5px_rgba(0,0,0,0.8)] z-[20] flex items-center justify-center cursor-pointer"
                       style={{ 
                         backgroundColor: COLOR_HEX[pColor],
                         color: 'white',
+                        border: '1.5px solid white'
                       }}
-                      animate={{ left, top, scale: isMovable ? [1, 1.2, 1] : 1 }}
+                      animate={{ left, top, x: transX, y: transY, scale: isMovable ? [1, 1.2, 1] : 1 }}
                       transition={{ duration: 0.3, scale: { repeat: isMovable ? Infinity : 0, duration: 1 } }}
-                      onClick={() => { if (isMovable) moveToken(tIdx); }}
+                      onClick={() => { if (isMovable) moveToken(tk.tIdx); }}
                     >
                        <div className="w-[40%] h-[40%] bg-white/30 rounded-full" />
-                       {isMovable && <div className="absolute inset-0 rounded-full cursor-pointer hover:bg-white/20 transition-colors pointer-events-auto" />}
+                       {isMovable && <div className="absolute inset-0 rounded-full bg-white/20 animate-ping opacity-50" />}
                     </motion.div>
                   );
-               });
             })}
         </div>
 
@@ -598,14 +682,26 @@ export default function LudoGame({ initialJoinId }: { initialJoinId?: string }) 
                  {isMyTurn ? "YOUR TURN" : `${game.playerNames[game.playerIds[game.currentTurnIndex]]}'S TURN`}
               </div>
               
-              <div className="flex items-center justify-center gap-4 text-4xl mb-6 font-bold" style={{ color: COLOR_HEX[turnColor] }}>
-                 {game.diceRolled ? getDiceIcon(game.diceValue) : <div className="w-12 h-12 flex items-center justify-center border-2 border-dashed border-white/20 rounded-xl animate-pulse"><RefreshCcw size={20} className="text-white/50" /></div>}
+              <div className="flex items-center justify-center mb-6">
+                 {game.diceRolled ? (
+                   <BlackWhiteDice val={game.diceValue} rolling={false} color={turnColor} />
+                 ) : (
+                   <div className="relative">
+                      {isMyTurn ? (
+                        <BlackWhiteDice val={6} rolling={true} color={turnColor} />
+                      ) : (
+                        <div className="w-12 h-12 flex items-center justify-center border-2 border-dashed border-white/20 rounded-xl animate-pulse">
+                          <RefreshCcw size={20} className="text-white/50" />
+                        </div>
+                      )}
+                   </div>
+                 )}
               </div>
 
               {isMyTurn && !game.diceRolled && (
                 <button 
                   onClick={rollDice}
-                  className="px-8 py-3 bg-white/10 border border-white/30 rounded hover:bg-white hover:text-black transition-colors tracking-widest text-sm"
+                  className="px-8 py-3 bg-white/10 border border-white/30 rounded hover:bg-white hover:text-black transition-colors tracking-widest text-sm font-bold"
                   style={{ color: COLOR_HEX[myColor] }}
                 >
                   ROLL DICE
