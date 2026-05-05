@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, useAnimation } from 'motion/react';
 import { auth, db } from '../firebase';
 import { signInAnonymously, updateProfile } from 'firebase/auth';
 import { collection, doc, addDoc, onSnapshot, updateDoc, query, where, getDocs, serverTimestamp, getDoc, setDoc } from 'firebase/firestore';
@@ -252,8 +252,8 @@ export default function LudoGame({ initialJoinId }: { initialJoinId?: string }) 
     setGame(null);
   };
 
-  const rollDice = async (actingUid?: string) => {
-    const uid = actingUid || user?.uid;
+  const rollDice = async (actingUid?: string | React.MouseEvent) => {
+    let uid = typeof actingUid === 'string' ? actingUid : user?.uid;
     if (!game || !uid || game.status !== 'playing' || game.diceRolled || game.playerIds[game.currentTurnIndex] !== uid) return;
     
     // Host is allowed to act for bots
@@ -521,27 +521,51 @@ export default function LudoGame({ initialJoinId }: { initialJoinId?: string }) 
     if (val === 5) dots.push('1/4_1/4', '3/4_1/4', '1/2_1/2', '1/4_3/4', '3/4_3/4');
     if (val === 6) dots.push('1/4_1/4', '3/4_1/4', '1/4_1/2', '3/4_1/2', '1/4_3/4', '3/4_3/4');
 
+    const controls = useAnimation();
+
+    useEffect(() => {
+      if (rollCount > 0) {
+        controls.start({
+          rotateX: [0, 360, 720],
+          rotateY: [0, 180, 360],
+          scale: [1, 1.2, 0.9, 1],
+          transition: { duration: 0.6, ease: "easeOut" }
+        });
+      }
+    }, [rollCount, controls]);
+
+    // Continuous pulse for interactive state
+    useEffect(() => {
+      if (isInteractive) {
+        controls.start({
+          scale: [1, 1.05, 1],
+          transition: { repeat: Infinity, duration: 1.5, ease: "easeInOut" }
+        });
+      } else if (rollCount === 0) {
+          // Reset when not interactive and not rolling
+          controls.set({ scale: 1, rotateX: 0, rotateY: 0 });
+      }
+    }, [isInteractive, controls, rollCount]);
+
+
     return (
       <div className="relative">
         <motion.div 
-           key={`dice_${rollCount}`}
            onClick={onClick}
            className={`relative w-16 h-16 rounded-[16px] shadow-[0_8px_16px_rgba(0,0,0,0.6),_inset_0_2px_4px_rgba(255,255,255,0.4)] ${isInteractive ? 'cursor-pointer hover:shadow-[0_12px_24px_rgba(0,0,0,0.8)]' : ''}`}
            style={{ background: `linear-gradient(135deg, ${COLOR_HEX[color]} 0%, ${adjustColor(COLOR_HEX[color], -40)} 100%)` }}
-           initial={{ scale: 0.5, rotateY: 180, rotateX: 180, opacity: 0 }}
-           animate={{ 
-              scale: isInteractive ? [1, 1.05, 1] : 1, 
-              rotateX: 0,
-              rotateY: 0,
-              opacity: 1
-           }}
-           transition={{ 
-             scale: isInteractive ? { repeat: Infinity, duration: 1.5, ease: "easeInOut" } : { duration: 0 },
-             default: { type: 'spring', stiffness: 200, damping: 15 }
-           }}
+           initial={{ opacity: 1, rotateX: 0, rotateY: 0, scale: 1 }}
+           animate={controls}
            whileHover={isInteractive ? { scale: 1.1 } : {}}
            whileTap={isInteractive ? { scale: 0.9 } : {}}
         >
+           {isInteractive && (
+              <motion.div 
+                 className="absolute inset-0 rounded-[16px] border-2 border-white/50"
+                 animate={{ opacity: [0, 1, 0] }}
+                 transition={{ duration: 1.5, repeat: Infinity }}
+              />
+           )}
            {dots.map(d => {
               const [x, y] = d.split('_');
               let l = x === '1/4' ? '25%' : x === '1/2' ? '50%' : '75%';
