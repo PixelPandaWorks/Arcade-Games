@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { auth, db } from '../firebase';
 import { signInAnonymously, updateProfile } from 'firebase/auth';
 import { collection, doc, addDoc, onSnapshot, updateDoc, query, where, getDocs, serverTimestamp, getDoc, setDoc } from 'firebase/firestore';
-import { Copy, Plus, Play, User as UserIcon, RefreshCcw, Crown, Home, Star } from 'lucide-react';
+import { Copy, Plus, Play, User as UserIcon, Crown, Home, Star, Bot } from 'lucide-react';
 
 interface LudoGameData {
   id?: string;
@@ -16,6 +16,7 @@ interface LudoGameData {
   tokens: Record<string, number[]>; // uid -> [pos0, pos1, pos2, pos3]. -1 = base, 0-50 = track, 51-56 = home path, 57 = completed
   diceValue: number;
   diceRolled: boolean;
+  diceRollCount?: number;
   winnerId?: string | null;
   createdAt?: any;
   updatedAt?: any;
@@ -159,6 +160,61 @@ export default function LudoGame({ initialJoinId }: { initialJoinId?: string }) 
       tokens: { [user.uid]: [-1, -1, -1, -1] },
       diceValue: 1,
       diceRolled: false,
+      diceRollCount: 0,
+      winnerId: null,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    };
+    
+    try {
+      let code = '';
+      let exists = true;
+      let docRef;
+      while (exists) {
+        code = Math.floor(100000 + Math.random() * 900000).toString();
+        docRef = doc(db, 'ludo_games', code);
+        const snap = await getDoc(docRef);
+        if (!snap.exists()) {
+          exists = false;
+        }
+      }
+      await setDoc(docRef!, newGame);
+      setGameId(code);
+    } catch (e: any) {
+      setError(e.message);
+    }
+  };
+
+  const hostGameWithBots = async (numBots: number) => {
+    if (!user) return;
+    setError('');
+    
+    const botIds = Array.from({length: numBots}, (_, i) => `bot_${i+1}`);
+    const botNames = botIds.map((id, i) => `BOT ${i+1}`);
+    
+    // Total players = 1 + numBots
+    const playerIds = [user.uid, ...botIds];
+    const playerNamesObj: Record<string, string> = { [user.uid]: alias };
+    const playerColorsObj: Record<string, string> = { [user.uid]: COLORS[0] };
+    const tokensObj: Record<string, number[]> = { [user.uid]: [-1, -1, -1, -1] };
+    
+    botIds.forEach((botId, index) => {
+       playerNamesObj[botId] = botNames[index];
+       playerColorsObj[botId] = numBots === 1 ? COLORS[2] : COLORS[index + 1];
+       tokensObj[botId] = [-1, -1, -1, -1];
+    });
+
+    const newGame: Partial<LudoGameData> = {
+      status: 'playing', // Start immediately!
+      hostId: user.uid,
+      playerIds: playerIds,
+      playerNames: playerNamesObj,
+      playerColors: playerColorsObj,
+      currentTurnIndex: 0,
+      tokens: tokensObj,
+      diceValue: 1,
+      diceRolled: false,
+      diceRollCount: 0,
       winnerId: null,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
@@ -196,20 +252,26 @@ export default function LudoGame({ initialJoinId }: { initialJoinId?: string }) 
     setGame(null);
   };
 
-  const rollDice = async () => {
-    if (!game || !user || game.status !== 'playing' || game.diceRolled || game.playerIds[game.currentTurnIndex] !== user.uid) return;
+  const rollDice = async (actingUid?: string) => {
+    const uid = actingUid || user?.uid;
+    if (!game || !uid || game.status !== 'playing' || game.diceRolled || game.playerIds[game.currentTurnIndex] !== uid) return;
     
+    // Host is allowed to act for bots
+    const isBot = uid.startsWith('bot_');
+    if (isBot && game.hostId !== user?.uid) return;
+
     const value = Math.floor(Math.random() * 6) + 1;
     
     let updates: Partial<LudoGameData> = {
       diceValue: value,
       diceRolled: true,
+      diceRollCount: (game.diceRollCount || 0) + 1,
       updatedAt: serverTimestamp()
     };
     
     // Check if player has any valid moves
-    const myColor = game.playerColors[user.uid];
-    const myTokens = game.tokens[user.uid];
+    const myColor = game.playerColors[uid];
+    const myTokens = game.tokens[uid];
     let hasValidMove = false;
     
     for (let i = 0; i < 4; i++) {
@@ -229,11 +291,18 @@ export default function LudoGame({ initialJoinId }: { initialJoinId?: string }) 
     await updateDoc(doc(db, 'ludo_games', game.id!), updates);
   };
 
-  const moveToken = async (tokenIdx: number) => {
-    if (!game || !user || game.status !== 'playing' || !game.diceRolled || game.playerIds[game.currentTurnIndex] !== user.uid) return;
+  const moveToken = async (tokenIdx: number, actingUid?: string) => {
+    let uid = actingUid || user?.uid;
+    // For tap event, sometimes it passes an object, so we ensure string.
+    if (typeof uid !== 'string') uid = user?.uid;
+
+    if (!game || !uid || game.status !== 'playing' || !game.diceRolled || game.playerIds[game.currentTurnIndex] !== uid) return;
     
-    const myColor = game.playerColors[user.uid];
-    const myTokens = [...game.tokens[user.uid]];
+    const isBot = uid.startsWith('bot_');
+    if (isBot && game.hostId !== user?.uid) return;
+    
+    const myColor = game.playerColors[uid];
+    const myTokens = [...game.tokens[uid]];
     const startPosForColor = START_POSITIONS[myColor];
     
     let pos = myTokens[tokenIdx];
@@ -249,7 +318,7 @@ export default function LudoGame({ initialJoinId }: { initialJoinId?: string }) 
     }
     
     myTokens[tokenIdx] = newPos;
-    newTokens[user.uid] = myTokens;
+    newTokens[uid] = myTokens;
     
     // Process captures (only if on main track, not safe square)
     // Absolute position calculation: (startPosForColor + newPos) % 52
@@ -260,7 +329,7 @@ export default function LudoGame({ initialJoinId }: { initialJoinId?: string }) 
       
       if (!SAFE_SQUARES.includes(myAbsPos)) {
         for (const pid of game.playerIds) {
-          if (pid !== user.uid) {
+          if (pid !== uid) {
             const oppColor = game.playerColors[pid];
             const oppTokens = [...newTokens[pid]];
             const oppStartPos = START_POSITIONS[oppColor];
@@ -292,7 +361,7 @@ export default function LudoGame({ initialJoinId }: { initialJoinId?: string }) 
     
     if (hasWon) {
       updates.status = 'finished';
-      updates.winnerId = user.uid;
+      updates.winnerId = uid;
     } else {
       // You get another turn if you roll a 6 OR you made a capture, OR if you reach home? 
       // Simplified: another turn on 6 or capture.
@@ -304,6 +373,49 @@ export default function LudoGame({ initialJoinId }: { initialJoinId?: string }) 
     
     await updateDoc(doc(db, 'ludo_games', game.id!), updates);
   };
+
+  // --- BOT LOGIC ---
+  useEffect(() => {
+     if (game?.status === 'playing' && game.hostId === user?.uid) {
+        const currentTurnId = game.playerIds[game.currentTurnIndex];
+        if (currentTurnId.startsWith('bot_')) {
+           if (!game.diceRolled) {
+              const timer = setTimeout(() => rollDice(currentTurnId), 1200);
+              return () => clearTimeout(timer);
+           } else {
+              const timer = setTimeout(() => {
+                 const myTokens = game.tokens[currentTurnId];
+                 const validMoves: number[] = [];
+                 for (let i = 0; i < 4; i++) {
+                     let pos = myTokens[i];
+                     if (pos === -1 && game.diceValue === 6) validMoves.push(i);
+                     else if (pos >= 0 && pos + game.diceValue <= 57) validMoves.push(i);
+                 }
+                 if (validMoves.length > 0) {
+                     // Prioritize moving tokens out of the base when possible
+                     const outOfBaseMoves = validMoves.filter(i => myTokens[i] === -1);
+                     let moveToMake = validMoves[Math.floor(Math.random() * validMoves.length)];
+                     
+                     if (outOfBaseMoves.length > 0) {
+                         moveToMake = outOfBaseMoves[0];
+                     } else {
+                         // Or prioritize tokens that are further ahead (closer to home)
+                         // sorting by pos descending
+                         const advancedMoves = [...validMoves].sort((a, b) => myTokens[b] - myTokens[a]);
+                         // 50% chance to pick the most advanced token to make them competitive
+                         if (Math.random() > 0.5) {
+                             moveToMake = advancedMoves[0];
+                         }
+                     }
+                     
+                     moveToken(moveToMake, currentTurnId);
+                 }
+              }, 1200);
+              return () => clearTimeout(timer);
+           }
+        }
+     }
+  }, [game?.status, game?.currentTurnIndex, game?.diceRolled, game?.diceValue, game?.tokens, user?.uid, game?.hostId]);
 
   // --- RENDER HELPERS ---
   
@@ -400,7 +512,7 @@ export default function LudoGame({ initialJoinId }: { initialJoinId?: string }) 
     });
   }
 
-  const BlackWhiteDice = ({ val, rolling, color }: { val: number, rolling: boolean, color: string }) => {
+  const BlackWhiteDice = ({ val, color, isInteractive, onClick, rollCount = 0 }: { val: number, color: string, isInteractive?: boolean, onClick?: () => void, rollCount?: number }) => {
     const dots: string[] = [];
     if (val === 1) dots.push('1/2_1/2');
     if (val === 2) dots.push('1/4_1/4', '3/4_3/4');
@@ -410,23 +522,34 @@ export default function LudoGame({ initialJoinId }: { initialJoinId?: string }) 
     if (val === 6) dots.push('1/4_1/4', '3/4_1/4', '1/4_1/2', '3/4_1/2', '1/4_3/4', '3/4_3/4');
 
     return (
-      <motion.div 
-         className="relative w-14 h-14 rounded-[14px] shadow-[0_8px_16px_rgba(0,0,0,0.6),_inset_0_2px_4px_rgba(255,255,255,0.4)]"
-         style={{ background: `linear-gradient(135deg, ${COLOR_HEX[color]} 0%, ${adjustColor(COLOR_HEX[color], -40)} 100%)` }}
-         animate={rolling ? { 
-            scale: [1, 1.2, 0.9, 1.1, 1], 
-            rotateX: [0, -180, 270, 720],
-            rotateY: [0, 90, -360, 720]
-         } : {}}
-         transition={{ duration: 0.5, ease: "easeOut" }}
-      >
-         {dots.map(d => {
-            const [x, y] = d.split('_');
-            let l = x === '1/4' ? '25%' : x === '1/2' ? '50%' : '75%';
-            let t = y === '1/4' ? '25%' : y === '1/2' ? '50%' : '75%';
-            return <div key={d} className="absolute w-[22%] h-[22%] bg-white rounded-full -translate-x-1/2 -translate-y-1/2 shadow-[inset_0_-2px_4px_rgba(0,0,0,0.3)]" style={{ left: l, top: t }} />
-         })}
-      </motion.div>
+      <div className="relative">
+        <motion.div 
+           key={`dice_${rollCount}`}
+           onClick={onClick}
+           className={`relative w-16 h-16 rounded-[16px] shadow-[0_8px_16px_rgba(0,0,0,0.6),_inset_0_2px_4px_rgba(255,255,255,0.4)] ${isInteractive ? 'cursor-pointer hover:shadow-[0_12px_24px_rgba(0,0,0,0.8)]' : ''}`}
+           style={{ background: `linear-gradient(135deg, ${COLOR_HEX[color]} 0%, ${adjustColor(COLOR_HEX[color], -40)} 100%)` }}
+           initial={{ scale: 0.5, rotateY: 180, rotateX: 180, opacity: 0 }}
+           animate={{ 
+              scale: isInteractive ? [1, 1.05, 1] : 1, 
+              rotateX: 0,
+              rotateY: 0,
+              opacity: 1
+           }}
+           transition={{ 
+             scale: isInteractive ? { repeat: Infinity, duration: 1.5, ease: "easeInOut" } : { duration: 0 },
+             default: { type: 'spring', stiffness: 200, damping: 15 }
+           }}
+           whileHover={isInteractive ? { scale: 1.1 } : {}}
+           whileTap={isInteractive ? { scale: 0.9 } : {}}
+        >
+           {dots.map(d => {
+              const [x, y] = d.split('_');
+              let l = x === '1/4' ? '25%' : x === '1/2' ? '50%' : '75%';
+              let t = y === '1/4' ? '25%' : y === '1/2' ? '50%' : '75%';
+              return <div key={d} className="absolute w-[22%] h-[22%] bg-white rounded-full -translate-x-1/2 -translate-y-1/2 shadow-[inset_0_-2px_4px_rgba(0,0,0,0.3)]" style={{ left: l, top: t }} />
+           })}
+        </motion.div>
+      </div>
     );
   };
 
@@ -481,33 +604,46 @@ export default function LudoGame({ initialJoinId }: { initialJoinId?: string }) 
         {error && <div className="text-red-400 text-sm tracking-widest">{error}</div>}
         
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
-          <button onClick={hostGame} className="flex flex-col items-center gap-2 p-6 rounded-xl border border-white/20 hover:border-red-500 hover:bg-red-500/10 transition-colors text-white">
+          <button onClick={hostGame} className="flex flex-col items-center gap-2 p-6 rounded-xl border border-white/20 hover:border-red-500 hover:bg-red-500/10 transition-colors text-white text-center">
              <Plus size={24} />
-             <span className="text-xs tracking-[0.2em]">HOST GAME</span>
+             <span className="text-[10px] sm:text-xs tracking-[0.2em]">HOST MULTIPLAYER</span>
           </button>
           
-          <div className="flex flex-col gap-2">
-            <input 
-              id="joinCode"
-              placeholder="ENTER CODE" 
-              maxLength={6}
-              className="bg-white/5 border border-white/20 p-4 rounded-xl text-center text-white placeholder:text-white/30 tracking-[0.2em] font-mono font-bold text-xl uppercase focus:outline-none focus:border-red-500"
-              onKeyDown={(e) => {
-                 if (e.key === 'Enter') {
-                    joinGame(e.currentTarget.value.trim().toUpperCase());
-                 }
-              }}
-            />
-            <button 
-               onClick={() => {
-                 const el = document.getElementById('joinCode') as HTMLInputElement;
-                 joinGame(el.value.trim().toUpperCase());
-               }}
-               className="p-4 rounded-xl border border-white/20 hover:border-red-500 bg-white/5 flex items-center justify-center gap-2 text-white"
-            >
-               <Play size={18} />
-               <span className="text-xs tracking-[0.2em]">JOIN</span>
+          <div className="flex flex-col justify-between gap-4">
+            <button onClick={() => hostGameWithBots(1)} className="flex items-center justify-center gap-2 p-4 rounded-xl border border-white/20 hover:border-cyan-500 hover:bg-cyan-500/10 transition-colors text-white h-full group">
+               <Bot size={20} className="group-hover:text-cyan-400" />
+               <span className="text-[10px] sm:text-xs tracking-[0.2em]">VS BOTS (2P)</span>
             </button>
+            <button onClick={() => hostGameWithBots(3)} className="flex items-center justify-center gap-2 p-4 rounded-xl border border-white/20 hover:border-cyan-500 hover:bg-cyan-500/10 transition-colors text-white h-full group">
+               <Bot size={20} className="group-hover:text-cyan-400" />
+               <span className="text-[10px] sm:text-xs tracking-[0.2em]">VS BOTS (4P)</span>
+            </button>
+          </div>
+
+          <div className="flex flex-col gap-2 sm:col-span-2 mt-4">
+            <div className="text-[10px] tracking-[0.2em] text-white/40 text-center mb-2">JOIN A GAME</div>
+            <div className="flex w-full">
+              <input 
+                id="joinCode"
+                placeholder="ENTER CODE" 
+                maxLength={6}
+                className="w-full bg-white/5 border border-white/20 p-4 rounded-l-xl text-center text-white placeholder:text-white/30 tracking-[0.2em] font-mono font-bold text-xl uppercase focus:outline-none focus:border-red-500"
+                onKeyDown={(e) => {
+                   if (e.key === 'Enter') {
+                      joinGame(e.currentTarget.value.trim().toUpperCase());
+                   }
+                }}
+              />
+              <button 
+                 onClick={() => {
+                   const el = document.getElementById('joinCode') as HTMLInputElement;
+                   joinGame(el.value.trim().toUpperCase());
+                 }}
+                 className="px-6 rounded-r-xl border-y border-r border-white/20 hover:border-red-500 bg-red-600/20 flex items-center justify-center gap-2 text-red-500"
+              >
+                 <Play size={20} />
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -716,46 +852,36 @@ export default function LudoGame({ initialJoinId }: { initialJoinId?: string }) 
         </div>
 
         {/* Controls Panel */}
-        <div className="flex flex-col gap-6 w-full max-w-sm">
+        <div className="flex flex-col gap-6 w-full max-w-[280px]">
            
-           <div className={`p-8 rounded-2xl border flex flex-col items-center justify-center transition-all duration-500 overflow-hidden relative ${isMyTurn ? 'bg-[#18181a] shadow-[0_10px_30px_rgba(0,0,0,0.5)]' : 'bg-black/20 opacity-50'}`} style={{ borderColor: isMyTurn ? COLOR_HEX[turnColor] : 'rgba(255,255,255,0.05)' }}>
+           <div className={`p-6 rounded-3xl border flex flex-col items-center justify-center transition-all duration-500 overflow-hidden relative ${isMyTurn ? 'bg-[#18181a] shadow-[0_10px_30px_rgba(0,0,0,0.5)]' : 'bg-black/20 opacity-50'}`} style={{ borderColor: isMyTurn ? COLOR_HEX[turnColor] : 'rgba(255,255,255,0.05)' }}>
               
               {isMyTurn && (
                 <div className="absolute top-0 left-0 w-full h-1" style={{ backgroundColor: COLOR_HEX[turnColor] }} />
               )}
 
-              <div className="text-xs tracking-[0.3em] mb-6 text-center text-white/50 uppercase">
+              <div className="text-[10px] tracking-[0.3em] mb-4 text-center text-white/50 uppercase">
                  {isMyTurn ? "Your Turn" : `${game.playerNames[game.playerIds[game.currentTurnIndex]]}'s Turn`}
               </div>
               
-              <div className="flex items-center justify-center mb-8 relative z-10 w-24 h-24">
-                 {game.diceRolled ? (
-                   <BlackWhiteDice val={game.diceValue} rolling={false} color={turnColor} />
-                 ) : (
-                   <div className="relative">
-                      {isMyTurn ? (
-                        <BlackWhiteDice val={6} rolling={true} color={turnColor} />
-                      ) : (
-                        <div className="w-14 h-14 flex items-center justify-center border border-dashed border-white/20 rounded-xl animate-pulse">
-                          <RefreshCcw size={20} className="text-white/30" />
-                        </div>
-                      )}
-                   </div>
-                 )}
+              <div className="flex items-center justify-center relative z-10 w-20 h-20 mb-4">
+                 <BlackWhiteDice 
+                    val={game.diceValue} 
+                    isInteractive={isMyTurn && !game.diceRolled} 
+                    color={turnColor} 
+                    onClick={isMyTurn && !game.diceRolled ? rollDice : undefined}
+                    rollCount={game.diceRollCount}
+                 />
               </div>
 
-              <div className="h-12 w-full flex items-center justify-center">
+              <div className="h-6 w-full flex items-center justify-center">
                 {isMyTurn && !game.diceRolled ? (
-                  <button 
-                    onClick={rollDice}
-                    className="px-8 py-3 bg-[#222] border rounded-full hover:bg-white hover:text-black transition-all tracking-[0.2em] text-xs font-bold w-full shadow-lg"
-                    style={{ borderColor: COLOR_HEX[myColor], color: COLOR_HEX[myColor] }}
-                  >
-                    ROLL DICE
-                  </button>
+                  <div className="text-[10px] tracking-[0.2em] text-white/80 font-bold text-center uppercase animate-pulse">
+                    Tap Dice to Roll
+                  </div>
                 ) : isMyTurn && game.diceRolled ? (
-                  <div className="text-xs tracking-[0.2em] text-white/50 text-center uppercase animate-pulse">
-                    Select a token
+                  <div className="text-[10px] tracking-[0.2em] text-white/80 font-bold text-center uppercase animate-pulse">
+                    Select a Token
                   </div>
                 ) : null}
               </div>
