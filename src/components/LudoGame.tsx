@@ -13,7 +13,7 @@ interface LudoGameData {
   playerNames: Record<string, string>;
   playerColors: Record<string, string>; // uid -> 'red' | 'green' | 'yellow' | 'blue'
   currentTurnIndex: number;
-  tokens: Record<string, number[]>; // uid -> [pos0, pos1, pos2, pos3]. -1 = base, 0-50 = track, 51-56 = home path, 57 = completed
+  tokens: Record<string, number[]>; // uid -> [pos0, pos1, pos2, pos3]. -1 = base, 0-50 = track, 51-55 = home path, 56 = completed
   diceValue: number;
   diceRolled: boolean;
   diceRollCount?: number;
@@ -277,8 +277,8 @@ export default function LudoGame({ initialJoinId }: { initialJoinId?: string }) 
     for (let i = 0; i < 4; i++) {
       let pos = myTokens[i];
       if (pos === -1 && value === 6) { hasValidMove = true; break; }
-      if (pos >= 0 && pos < 57) {
-        if (pos + value <= 57) { hasValidMove = true; break; }
+      if (pos >= 0 && pos < 56) {
+        if (pos + value <= 56) { hasValidMove = true; break; }
       }
     }
     
@@ -313,7 +313,7 @@ export default function LudoGame({ initialJoinId }: { initialJoinId?: string }) 
       if (game.diceValue !== 6) return; // Need 6 to get out
       newPos = 0; // Relative 0 means starting on their track part
     } else {
-      if (pos + game.diceValue > 57) return; // Need exact roll
+      if (pos + game.diceValue > 56) return; // Need exact roll
       newPos = pos + game.diceValue;
     }
     
@@ -351,7 +351,7 @@ export default function LudoGame({ initialJoinId }: { initialJoinId?: string }) 
     }
     
     // Check win condition
-    const hasWon = myTokens.every(t => t === 57);
+    const hasWon = myTokens.every(t => t === 56);
     
     const updates: Partial<LudoGameData> = {
       tokens: newTokens,
@@ -365,7 +365,7 @@ export default function LudoGame({ initialJoinId }: { initialJoinId?: string }) 
     } else {
       // You get another turn if you roll a 6 OR you made a capture, OR if you reach home? 
       // Simplified: another turn on 6 or capture.
-      const getsAnotherTurn = game.diceValue === 6 || madeCapture || newPos === 57;
+      const getsAnotherTurn = game.diceValue === 6 || madeCapture || newPos === 56;
       if (!getsAnotherTurn) {
         updates.currentTurnIndex = (game.currentTurnIndex + 1) % game.playerIds.length;
       }
@@ -389,7 +389,7 @@ export default function LudoGame({ initialJoinId }: { initialJoinId?: string }) 
                  for (let i = 0; i < 4; i++) {
                      let pos = myTokens[i];
                      if (pos === -1 && game.diceValue === 6) validMoves.push(i);
-                     else if (pos >= 0 && pos + game.diceValue <= 57) validMoves.push(i);
+                     else if (pos >= 0 && pos + game.diceValue <= 56) validMoves.push(i);
                  }
                  if (validMoves.length > 0) {
                      // Prioritize moving tokens out of the base when possible
@@ -486,8 +486,26 @@ export default function LudoGame({ initialJoinId }: { initialJoinId?: string }) 
       const gc = getHomePathCoords(color, pos - 50);
       gx = gc.x; gy = gc.y;
     } else {
-      // Center (completed)
-      gx = 7; gy = 7;
+      // Completed tokens inside the center triangle
+      const getHomeTriangleCoords = (c: string, idx: number) => {
+        // Base center of the board is at 50%, 50%
+        // We will return percentage coordinates directly.
+        if (c === 'yellow') {
+          return [ {x: 43.5, y: 47}, {x: 43.5, y: 53}, {x: 46.5, y: 48.5}, {x: 46.5, y: 51.5} ][idx];
+        }
+        if (c === 'green') {
+          return [ {x: 47, y: 43.5}, {x: 53, y: 43.5}, {x: 48.5, y: 46.5}, {x: 51.5, y: 46.5} ][idx];
+        }
+        if (c === 'red') {
+          return [ {x: 56.5, y: 47}, {x: 56.5, y: 53}, {x: 53.5, y: 48.5}, {x: 53.5, y: 51.5} ][idx];
+        }
+        if (c === 'blue') {
+          return [ {x: 47, y: 56.5}, {x: 53, y: 56.5}, {x: 48.5, y: 53.5}, {x: 51.5, y: 53.5} ][idx];
+        }
+        return { x: 50, y: 50 };
+      };
+      const htc = getHomeTriangleCoords(color, tokenIdx);
+      return { x: htc.x, y: htc.y, isGrid: false };
     }
     
     return { x: (gx + 0.5) * (100 / 15), y: (gy + 0.5) * (100 / 15), isGrid: true };
@@ -822,11 +840,11 @@ export default function LudoGame({ initialJoinId }: { initialJoinId?: string }) 
                   const tPos = game.tokens[tk.pid][tk.tIdx];
 
                   let isMovable = false;
-                  if (isMyTurn && game.diceRolled && tk.pid === user.uid) {
+                  if (isMyTurn && game.diceRolled && tk.pid === user?.uid) {
                     if (tPos === -1 && game.diceValue === 6) isMovable = true;
-                    if (tPos >= 0 && tPos < 57 && tPos + game.diceValue <= 57) isMovable = true;
+                    if (tPos >= 0 && tPos < 56 && tPos + game.diceValue <= 56) isMovable = true;
                   }
-
+                  
                   const ocArr = gridOccupancy[tk.key];
                   const subIdx = ocArr.findIndex(o => o.pid === tk.pid && o.tIdx === tk.tIdx);
                   const total = ocArr.length;
@@ -853,7 +871,7 @@ export default function LudoGame({ initialJoinId }: { initialJoinId?: string }) 
                   const left = `${tk.coords.x}%`;
                   const top = `${tk.coords.y}%`;
                   
-                  const isFinished = tPos >= 57;
+                  const isFinished = tPos >= 56;
 
                   return (
                     <motion.div 
@@ -861,11 +879,10 @@ export default function LudoGame({ initialJoinId }: { initialJoinId?: string }) 
                       className="absolute w-[5%] h-[5%] rounded-full z-[20] flex items-center justify-center cursor-pointer pointer-events-auto"
                       style={{ 
                         background: `radial-gradient(circle at 30% 30%, ${COLOR_HEX[pColor]} 0%, ${adjustColor(COLOR_HEX[pColor], -50)} 90%)`,
-                        boxShadow: `inset 0 2px 4px rgba(255,255,255,0.6), inset 0 -4px 6px rgba(0,0,0,0.6), 0 6px 10px rgba(0,0,0,0.6)`,
-                        opacity: isFinished ? 0 : 1
+                        boxShadow: `inset 0 2px 4px rgba(255,255,255,0.6), inset 0 -4px 6px rgba(0,0,0,0.6), 0 6px 10px rgba(0,0,0,0.6)`
                       }}
-                      animate={{ left, top, x: transX, y: transY, scale: isMovable ? [1, 1.15, 1] : 1 }}
-                      transition={{ duration: 0.4, scale: { repeat: isMovable ? Infinity : 0, duration: 1.2 } }}
+                      animate={{ left, top, x: transX, y: transY, scale: isFinished ? 0.8 : (isMovable ? [1, 1.15, 1] : 1) }}
+                      transition={{ duration: 0.4, scale: { repeat: isMovable && !isFinished ? Infinity : 0, duration: 1.2 } }}
                       onClick={() => { if (isMovable) moveToken(tk.tIdx); }}
                     >
                        <div className="w-[35%] h-[35%] rounded-full bg-white opacity-20 filter blur-[1px] translate-x-[-30%] translate-y-[-30%]" />
