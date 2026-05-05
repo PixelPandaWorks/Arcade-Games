@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { getSudoku } from 'sudoku-gen';
-import { RefreshCw, Eraser, Trophy } from 'lucide-react';
+import { RefreshCw, Eraser, Trophy, Timer } from 'lucide-react';
 
 type Difficulty = 'easy' | 'medium' | 'hard' | 'expert';
 
@@ -14,6 +14,23 @@ export default function SudokuGame() {
   const [isWon, setIsWon] = useState(false);
   const [showInstructions, setShowInstructions] = useState(() => !localStorage.getItem('arcade_sudoku_seen_instructions'));
   const [highScore, setHighScore] = useState(() => parseInt(localStorage.getItem('arcade_sudoku_highscore') || '0', 10));
+  const [timeElapsed, setTimeElapsed] = useState(0);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (!showInstructions && !isWon) {
+      interval = setInterval(() => {
+        setTimeElapsed(prev => prev + 1);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [showInstructions, isWon]);
+
+  const formatTime = (seconds: number) => {
+    const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+    const s = (seconds % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+  };
 
   const dismissInstructions = () => {
     setShowInstructions(false);
@@ -40,6 +57,7 @@ export default function SudokuGame() {
     setConflicts(new Set());
     setIsWon(false);
     setDifficulty(diff);
+    setTimeElapsed(0);
   }, []);
 
   useEffect(() => {
@@ -136,7 +154,13 @@ export default function SudokuGame() {
       <div className="flex flex-col md:flex-row justify-between items-center w-full mb-8 gap-4">
         <div>
           <h2 className="text-3xl font-light tracking-[0.3em]">SUDOKU</h2>
-          {highScore > 0 && <p className="text-xs text-blue-400 tracking-[0.2em] mt-1 uppercase">Puzzles Solved: {highScore}</p>}
+          <div className="flex items-center gap-4 mt-2">
+            <p className="text-xs text-gray-400 tracking-[0.2em] flex items-center gap-1.5 uppercase">
+              <Timer size={14} />
+              {formatTime(timeElapsed)}
+            </p>
+            {highScore > 0 && <p className="text-xs text-blue-400 tracking-[0.2em] uppercase">Solved: {highScore}</p>}
+          </div>
         </div>
         
         <div className="flex items-center gap-2">
@@ -215,7 +239,11 @@ export default function SudokuGame() {
         {isWon && (
           <div className="absolute inset-0 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center rounded-xl z-10 animate-in fade-in duration-500">
             <Trophy size={48} className="text-yellow-400 mb-4" />
-            <h3 className="text-2xl font-light tracking-[0.2em] text-white mb-6">PUZZLE SOLVED</h3>
+            <h3 className="text-2xl font-light tracking-[0.2em] text-white mb-2">PUZZLE SOLVED</h3>
+            <p className="text-sm text-gray-300 tracking-[0.2em] mb-6 uppercase flex items-center gap-2">
+              <Timer size={16} />
+              Time: {formatTime(timeElapsed)}
+            </p>
             <button
               onClick={() => startNewGame(difficulty)}
               className="flex items-center gap-2 px-6 py-3 bg-white text-black text-xs tracking-widest rounded-full hover:bg-gray-200 transition-colors"

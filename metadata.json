@@ -1,5 +1,6 @@
 {
-  "name": "",
+  "name": "Arcade",
   "description": "",
-  "requestFramePermissions": []
+  "requestFramePermissions": [],
+  "majorCapabilities": []
 }
