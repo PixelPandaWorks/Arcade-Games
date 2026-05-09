@@ -78,11 +78,12 @@ const canPlayCard = (cardId: string, topCardId: string, currentColor: CardColor)
 export default function OverrideGame({ initialJoinId }: { initialJoinId?: string | null }) {
   const [user, setUser] = useState<User | null>(null);
   const [usernameInput, setUsernameInput] = useState('');
+  const [aliasSet, setAliasSet] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
   const [game, setGame] = useState<GameState | null>(null);
   const [availableGames, setAvailableGames] = useState<GameState[]>([]);
-  const [pendingJoinId, setPendingJoinId] = useState<string | null>(initialJoinId || null);
+  const [gameId, setGameId] = useState<string|null>(initialJoinId || null);
 
   const [copiedLink, setCopiedLink] = useState(false);
 
@@ -93,13 +94,18 @@ export default function OverrideGame({ initialJoinId }: { initialJoinId?: string
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
       setUser(u);
+      if (u?.displayName) {
+        setUsernameInput(u.displayName);
+        setAliasSet(true);
+      }
     });
     return () => unsubscribe();
   }, []);
 
-  // Lobby Listener
+  // Lobby Listener - Only for code-based join now, but keeping for reference or background updates if needed.
+  // Actually, let's keep it but remove the auto-join list from UI later.
   useEffect(() => {
-    if (!user || game) return;
+    if (!user || !aliasSet || game) return;
     const q = query(collection(db, 'override_games'), where('status', '==', 'waiting'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const gamesData: GameState[] = [];
@@ -111,20 +117,23 @@ export default function OverrideGame({ initialJoinId }: { initialJoinId?: string
       handleFirestoreError(err, OperationType.LIST, 'override_games');
     });
     return () => unsubscribe();
-  }, [user, game]);
+  }, [user, aliasSet, game]);
 
   // Game Listener
   useEffect(() => {
-    if (!game?.id) return;
-    const unsubscribe = onSnapshot(doc(db, 'override_games', game.id), (docSnap) => {
+    if (!gameId || !user || !aliasSet) return;
+    const unsubscribe = onSnapshot(doc(db, 'override_games', gameId), (docSnap) => {
       if (docSnap.exists()) {
         setGame({ id: docSnap.id, ...docSnap.data() } as GameState);
+      } else {
+        setGame(null);
+        setGameId(null);
       }
     }, (err) => {
-      handleFirestoreError(err, OperationType.GET, `override_games/${game.id}`);
+      handleFirestoreError(err, OperationType.GET, `override_games/${gameId}`);
     });
     return () => unsubscribe();
-  }, [game?.id]);
+  }, [gameId, user, aliasSet]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -134,9 +143,14 @@ export default function OverrideGame({ initialJoinId }: { initialJoinId?: string
     }
     setError(null);
     try {
-      const { user: authUser } = await signInAnonymously(auth);
+      let authUser = auth.currentUser;
+      if (!authUser) {
+        const res = await signInAnonymously(auth);
+        authUser = res.user;
+      }
       await updateProfile(authUser, { displayName: usernameInput.trim() });
-      setUser({ ...authUser, displayName: usernameInput.trim() } as User);
+      setUser(authUser);
+      setAliasSet(true);
     } catch (err: any) {
       setError(err.message);
     }
@@ -145,7 +159,18 @@ export default function OverrideGame({ initialJoinId }: { initialJoinId?: string
   const createGame = async () => {
     if (!user) return;
     try {
-      const newGameRef = doc(collection(db, 'override_games'));
+      let code = '';
+      let exists = true;
+      let docRef;
+      while (exists) {
+        code = Math.floor(100000 + Math.random() * 900000).toString();
+        docRef = doc(db, 'override_games', code);
+        const snap = await getDoc(docRef);
+        if (!snap.exists()) {
+          exists = false;
+        }
+      }
+
       const newGame: Partial<GameState> & { createdAt: any, updatedAt: any } = {
         status: 'waiting',
         hostId: user.uid,
@@ -163,17 +188,18 @@ export default function OverrideGame({ initialJoinId }: { initialJoinId?: string
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       };
-      await setDoc(newGameRef, newGame);
-      setGame({ id: newGameRef.id, ...newGame } as GameState);
+      await setDoc(docRef!, newGame);
+      setGameId(code);
     } catch (err) {
       handleFirestoreError(err, OperationType.CREATE, 'override_games');
     }
   };
 
-  const joinGame = async (gameId: string) => {
+  const joinGame = async (code: string) => {
     if (!user) return;
+    setError(null);
     try {
-      const gameRef = doc(db, 'override_games', gameId);
+      const gameRef = doc(db, 'override_games', code);
       const gameSnap = await getDoc(gameRef);
       if (!gameSnap.exists()) {
         setError("Network not found or closed.");
@@ -182,7 +208,7 @@ export default function OverrideGame({ initialJoinId }: { initialJoinId?: string
       
       const data = gameSnap.data() as GameState;
       if (data.playerIds.includes(user.uid)) {
-        setGame({ id: gameSnap.id, ...data } as GameState);
+        setGameId(code);
         return;
       }
 
@@ -208,21 +234,21 @@ export default function OverrideGame({ initialJoinId }: { initialJoinId?: string
         unoFlags: updatedUnos,
         updatedAt: serverTimestamp()
       });
-      
+      setGameId(code);
     } catch (err) {
-      handleFirestoreError(err, OperationType.UPDATE, `override_games/${gameId}`);
+      handleFirestoreError(err, OperationType.UPDATE, `override_games/${code}`);
     }
   };
 
   useEffect(() => {
-    if (user && pendingJoinId && !game) {
-      joinGame(pendingJoinId);
-      setPendingJoinId(null);
+    if (user && aliasSet && gameId && !game) {
+      joinGame(gameId);
     }
-  }, [user, pendingJoinId, game]);
+  }, [user, aliasSet, gameId]);
 
   const leaveGame = async () => {
     setGame(null);
+    setGameId(null);
   };
 
   const copyInviteLink = () => {
@@ -413,7 +439,7 @@ export default function OverrideGame({ initialJoinId }: { initialJoinId?: string
 
   // --- UI Helpers ---
 
-  if (!user) {
+  if (!user || !aliasSet) {
     return (
       <div className="flex flex-col items-center justify-center h-full px-6">
         <h2 className="text-3xl font-light tracking-[0.3em] text-white mb-2 text-center">OVERRIDE</h2>
@@ -424,9 +450,10 @@ export default function OverrideGame({ initialJoinId }: { initialJoinId?: string
             <input 
               type="text" 
               value={usernameInput}
-              onChange={e => setUsernameInput(e.target.value)}
-              className="bg-transparent border-b border-white/20 px-0 py-2 text-white focus:outline-none focus:border-cyan-400 transition-colors placeholder:text-white/20"
-              placeholder="e.g. Neo"
+              onChange={e => setUsernameInput(e.target.value.toUpperCase())}
+              className="bg-transparent border-b border-white/20 px-0 py-2 text-white focus:outline-none focus:border-cyan-400 transition-colors placeholder:text-white/20 uppercase"
+              placeholder="e.g. NEO"
+              maxLength={12}
               required
             />
           </div>
@@ -452,18 +479,48 @@ export default function OverrideGame({ initialJoinId }: { initialJoinId?: string
           </div>
         </div>
 
-        <button 
-          onClick={createGame}
-          className="flex items-center justify-center gap-3 w-full py-6 border border-cyan-500/50 text-cyan-400 font-medium tracking-[0.2em] rounded-xl hover:bg-cyan-500 hover:text-black transition-all mb-12 group shadow-[0_0_20px_rgba(6,182,212,0.1)]"
-        >
-          <Play size={20} className="group-hover:animate-pulse" /> HOST A LOBBY
-        </button>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
+          <button 
+            onClick={createGame}
+            className="flex flex-col items-center justify-center gap-4 p-8 border border-cyan-500/50 text-cyan-400 font-medium tracking-[0.2em] rounded-xl hover:bg-cyan-500 hover:text-black transition-all group shadow-[0_0_20px_rgba(6,182,212,0.1)]"
+          >
+            <Plus size={32} />
+            <span className="text-xs">HOST A LOBBY</span>
+          </button>
 
-        <div className="w-full">
+          <div className="flex flex-col gap-2 w-full p-4 border border-white/10 rounded-xl bg-black/40">
+             <div className="text-[10px] tracking-[0.2em] text-white/40 mb-2 uppercase">Connect to Network</div>
+             <div className="flex w-full">
+               <input 
+                 id="overrideJoinCode"
+                 placeholder="CODE" 
+                 maxLength={6}
+                 className="w-full bg-white/5 border border-white/20 p-4 rounded-l-xl text-center text-white placeholder:text-white/30 tracking-[0.2em] font-mono font-bold text-xl uppercase focus:outline-none focus:border-cyan-500"
+                 onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                       joinGame(e.currentTarget.value.trim().toUpperCase());
+                    }
+                 }}
+               />
+               <button 
+                  onClick={() => {
+                    const el = document.getElementById('overrideJoinCode') as HTMLInputElement;
+                    joinGame(el.value.trim().toUpperCase());
+                  }}
+                  className="px-6 rounded-r-xl border-y border-r border-white/20 hover:border-cyan-500 bg-cyan-600/20 flex items-center justify-center gap-2 text-cyan-500"
+               >
+                  <Play size={20} />
+               </button>
+             </div>
+             {error && <p className="text-red-400 text-xs mt-2 text-center">{error}</p>}
+          </div>
+        </div>
+
+        <div className="w-full mt-12">
           <h3 className="text-xs text-white/40 tracking-[0.2em] uppercase mb-4 pl-2 flex items-center gap-2">
             <ShieldAlert size={14} /> Open Networks
           </h3>
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3 max-h-48 overflow-y-auto custom-scroll">
             {availableGames.length === 0 ? (
               <div className="p-8 border border-white/5 rounded-xl text-center bg-white/5">
                  <p className="text-white/30 text-sm font-light">No open networks found.</p>
@@ -494,7 +551,14 @@ export default function OverrideGame({ initialJoinId }: { initialJoinId?: string
     return (
       <div className="flex flex-col items-center justify-center h-full px-6 py-12 max-w-lg mx-auto w-full text-center">
         <h2 className="text-2xl font-light tracking-[0.3em] text-white">LOBBY TERMINAL</h2>
-        <p className="text-cyan-400 text-xs tracking-[0.2em] uppercase mb-12">Waiting for connections...</p>
+        <div className="bg-black/50 border border-white/10 px-6 py-3 rounded flex items-center gap-4 cursor-pointer hover:bg-white/5 mx-auto mt-4 mb-8" onClick={() => {
+            navigator.clipboard.writeText(game.id!);
+            setCopiedLink(true);
+            setTimeout(() => setCopiedLink(false), 2000);
+          }}>
+            <span className="font-mono text-xl text-cyan-400 tracking-wider font-bold">{game.id}</span>
+            {copiedLink ? <Check size={16} className="text-green-400" /> : <Copy size={16} className="text-white/50" />}
+          </div>
         
         <div className="w-full border border-white/10 rounded-2xl bg-black/30 p-6 mb-8 flex flex-col gap-4 relative overflow-hidden">
            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-cyan-500 to-transparent opacity-50" />
@@ -512,14 +576,6 @@ export default function OverrideGame({ initialJoinId }: { initialJoinId?: string
         </div>
 
         <div className="flex flex-col gap-4 w-full">
-          <button 
-            onClick={copyInviteLink}
-            className="flex items-center justify-center gap-2 py-3 border border-white/20 text-white/70 text-xs tracking-[0.2em] uppercase rounded hover:bg-white/10 hover:text-white transition-colors"
-          >
-             {copiedLink ? <Check size={16} className="text-green-400" /> : <Copy size={16} />}
-             {copiedLink ? 'Link Copied' : 'Invite Link'}
-          </button>
-          
           {user.uid === game.hostId ? (
             <button 
               onClick={startGame}
